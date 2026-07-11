@@ -41,6 +41,11 @@ import {
   fetchVacancyApplications,
   fetchVacancyHiringMinute,
 } from './api';
+import {
+  publishJobPosting,
+  createJobPosting,
+  withdrawJobPosting,
+} from './jobPostingApi';
 import { useAuth } from '@/hooks/useAuth';
 
 export const VacancyHub: React.FC = () => {

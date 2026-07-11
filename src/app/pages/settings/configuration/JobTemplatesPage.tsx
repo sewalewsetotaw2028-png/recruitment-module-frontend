@@ -206,7 +206,7 @@ export const JobTemplatesPage: React.FC = () => {
           </span>
           <span className="font-bold">{error}</span>
           <button
-            onClick={loadTemplates}
+            onClick={() => loadTemplates()}
             className="ml-auto text-xs font-extrabold text-red-700 underline underline-offset-2 hover:text-red-900 focus:outline-none cursor-pointer"
           >
             Retry

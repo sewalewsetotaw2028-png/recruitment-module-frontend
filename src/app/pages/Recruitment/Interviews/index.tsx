@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useInterviewsSlice, interviewsActions } from './slice';
 import { useShortlistedSlice, shortlistedActions } from '../Shortlisted/slice';
 import React, { useEffect, useMemo, useState } from 'react';

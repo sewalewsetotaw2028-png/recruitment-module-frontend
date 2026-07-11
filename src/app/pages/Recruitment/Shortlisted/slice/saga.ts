@@ -15,7 +15,7 @@ function* fetchShortlistedSaga() {
 
     const rows = Array.isArray(data?.data) ? data.data : [];
     // Backend already filters for SHORTLISTED status — map all returned rows
-    const applications = rows.map((row) =>
+    const applications = rows.map((row: any) =>
       mapApiApplication(row as Record<string, unknown>),
     );
 

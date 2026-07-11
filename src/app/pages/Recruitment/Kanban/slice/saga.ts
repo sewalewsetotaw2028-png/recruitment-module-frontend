@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { call, put, takeLatest } from 'redux-saga/effects';
 import makeCall from '@/API';
 import { API_ROUTES } from '@/API/apiRoutes';

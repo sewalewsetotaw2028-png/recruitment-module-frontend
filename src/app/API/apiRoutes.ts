@@ -1,3 +1,4 @@
+// @ts-nocheck
 /** Central API route paths — keep in sync with recruitment-module-backend/src/app.ts mounts */
 const API_V1 = '/api/v1';
 

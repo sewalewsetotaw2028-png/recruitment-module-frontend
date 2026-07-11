@@ -292,7 +292,7 @@ export const ApprovalWorkflowsPage: React.FC = () => {
           </span>
           <span className="font-bold">{error}</span>
           <button
-            onClick={loadWorkflows}
+            onClick={() => loadWorkflows()}
             className="ml-auto text-xs font-extrabold text-red-700 underline underline-offset-2 hover:text-red-900 focus:outline-none cursor-pointer"
           >
             Retry

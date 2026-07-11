@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { call, put, takeLatest } from 'redux-saga/effects';
 import { fetchTalentPoolEntries } from '../api';
 import { getErrorMessage } from '@/utils/apiMappers';

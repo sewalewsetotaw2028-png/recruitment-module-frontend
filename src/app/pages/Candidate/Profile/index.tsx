@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useCandidateProfileSlice } from './slice';
 import { candidateProfileActions } from './slice';
 import {

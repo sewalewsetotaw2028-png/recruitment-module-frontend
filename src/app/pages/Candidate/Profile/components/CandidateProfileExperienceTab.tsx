@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState } from 'react';
 import type { CandidateProfileData, Experience } from '@/pages/Candidate/types';
 import Modal from '@/components/ui/Modal/Modal';

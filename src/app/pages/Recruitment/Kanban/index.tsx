@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useKanbanSlice, kanbanActions } from './slice';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';

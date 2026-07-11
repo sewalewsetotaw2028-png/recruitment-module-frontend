@@ -14,7 +14,7 @@ function* fetchScreeningSaga() {
     });
 
     const rows = Array.isArray(data?.data) ? data.data : [];
-    const applications = rows.map((row) =>
+    const applications = rows.map((row: any) =>
       mapApiApplication(row as Record<string, unknown>),
     );
 
@@ -34,7 +34,7 @@ function* updateApplicationStatusSaga(
     | ReturnType<typeof screeningActions.rejectApplicationRequest>,
 ) {
   try {
-    const payload = action.payload as {
+    const payload = action.payload as unknown as {
       applicationId: string;
       status: string;
       currentStage?: string;

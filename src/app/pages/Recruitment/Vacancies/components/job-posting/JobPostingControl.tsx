@@ -803,7 +803,7 @@ export const JobPostingControl: React.FC<JobPostingControlProps> = ({
         open={confirm === 'publish'}
         title="Publish Job Posting?"
         message={`Publish "${vacancy.title}" to ${unsyncedSlugs.length} new channel(s)? Candidates will see this on selected portals.`}
-        confirmLabel="Publish Job"
+        confirmText="Publish Job"
         onConfirm={() => {
           onPublish(unsyncedSlugs);
           setConfirm(null);
@@ -814,7 +814,7 @@ export const JobPostingControl: React.FC<JobPostingControlProps> = ({
         open={confirm === 'withdraw'}
         title="Withdraw Posting?"
         message="Remove from all channels. Existing applications are retained."
-        confirmLabel="Withdraw"
+        confirmText="Withdraw"
         variant="danger"
         onConfirm={() => {
           onWithdraw();
@@ -826,7 +826,7 @@ export const JobPostingControl: React.FC<JobPostingControlProps> = ({
         open={confirm === 'unpublish'}
         title="Unpublish Posting?"
         message="Take offline; you can edit and republish later."
-        confirmLabel="Unpublish"
+        confirmText="Unpublish"
         onConfirm={() => {
           onUnpublish();
           setConfirm(null);

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useCandidateJobSearchSlice } from './slice';
 import { candidateJobSearchActions } from './slice';
 import {

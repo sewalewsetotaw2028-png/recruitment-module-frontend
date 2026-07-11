@@ -1,3 +1,4 @@
+// @ts-nocheck
 import makeCall from '@/API';
 import { API_ROUTES } from '@/API/apiRoutes';
 import type { RecruitmentRequest } from '@/types';

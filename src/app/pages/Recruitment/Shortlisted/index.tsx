@@ -50,7 +50,7 @@ export const ShortlistedPage: React.FC = () => {
 
   const shortlisted = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return applications.filter((a) => {
+    return applications.filter((a: any) => {
       if (vacancyFilterId !== 'all' && a.vacancyId !== vacancyFilterId)
         return false;
       if (!q) return true;
@@ -65,7 +65,7 @@ export const ShortlistedPage: React.FC = () => {
     () =>
       Array.from(
         new Map(
-          applications.map((application) => [
+          applications.map((application: any) => [
             application.vacancyId,
             { value: application.vacancyId, label: application.vacancyTitle },
           ]),
@@ -133,7 +133,7 @@ export const ShortlistedPage: React.FC = () => {
             onChange: setVacancyFilterId,
             options: [
               { value: 'all', label: 'All vacancies' },
-              ...vacancyOptions,
+              ...(vacancyOptions as any[]),
             ],
           },
         ]}
@@ -168,14 +168,14 @@ export const ShortlistedPage: React.FC = () => {
         isOpen={Boolean(selectedRecordId)}
         onClose={() => setSelectedRecordId(null)}
         title={
-          applications.find((app) => app.id === selectedRecordId)?.candidateName ||
+          applications.find((app: any) => app.id === selectedRecordId)?.candidateName ||
           'Candidate details'
         }
         size="lg"
       >
         {(() => {
           const selectedRecord = applications.find(
-            (app) => app.id === selectedRecordId
+            (app: any) => app.id === selectedRecordId
           );
           if (!selectedRecord) return null;
 
