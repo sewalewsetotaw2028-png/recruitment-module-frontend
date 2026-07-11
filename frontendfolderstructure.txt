@@ -1,0 +1,219 @@
+React, TypeScript Frontend development folder structure
+
+Frontend
+├── /public/                    # Static files served directly (no bundling)
+│   ├── index.html
+│   ├── favicon.ico
+│   └── /images/                # Images accessible publicly
+│
+├── src/
+│   ├── app/                          # Application core (no business logic)
+│   │   ├── store.ts                  # Redux store configuration
+│   │   ├── rootReducer.ts            # Combine all feature reducers
+│   │   ├── router.tsx                # App routes (lazy-loaded)
+│   │   ├── providers.tsx             # Global providers (Redux, Theme, Auth)
+│   │   └── hooks.ts                  # Typed hooks (useAppDispatch, useAppSelector)
+│   │
+│   ├── assets/                       # Static assets (used across app)
+│   │   ├── images/
+│   │   ├── icons/
+│   │   └── fonts/
+│   │
+│   ├── components/                   # Shared reusable components
+│   │   ├── ui/                       # Design system (pure UI, no business logic)
+│   │   │   ├── Button/
+│   │   │   │   ├── Button.tsx
+│   │   │   │   ├── Button.module.scss
+│   │   │   │   ├── Button.test.tsx
+│   │   │   │   └── index.ts          # Barrel export
+│   │   │   ├── Input/
+│   │   │   ├── Modal/
+│   │   │   └── Table/
+│   │   │
+│   │   └── common/                   # Shared business components (used in many features)
+│   │       ├── EmployeeSelector/
+│   │       ├── ConfirmDialog/
+│   │       └── FileUploader/
+│   │
+│   ├── features/                     # Feature-based modules (domain-driven)
+│   │   └── employee/                 #  Employee module (example feature)
+│   │       ├── api/                  # API layer (RTK Query / Axios)
+│   │       │   └── employeeApi.ts
+│   │       │
+│   │       ├── components/           # Feature-specific UI components
+│   │       │   ├── EmployeeCard.tsx
+│   │       │   ├── EmployeeTable.tsx
+│   │       │   └── EmployeeForm.tsx
+│   │       │
+│   │       ├── pages/                # Route-level components (screens)
+│   │       │   ├── EmployeeListPage.tsx
+│   │       │   ├── EmployeeDetailPage.tsx
+│   │       │   └── EmployeeCreatePage.tsx
+│   │       │
+│   │       ├── store/                # Redux state management
+│   │       │   ├── employeeSlice.ts
+│   │       │   └── employeeSelectors.ts
+│   │       │
+│   │       ├── hooks/                # Custom hooks (feature logic)
+│   │       │   └── useEmployee.ts
+│   │       │
+│   │       ├── types/                # TypeScript types/interfaces
+│   │       │   └── employee.types.ts
+│   │       │
+│   │       ├── utils/                # Helper functions (pure logic)
+│   │       │   └── employeeUtils.ts
+│   │       │
+│   │       └── index.ts              # Public API of employee feature (barrel export)
+│   │
+│   ├── lib/                          # Reusable libraries / cross-feature utils
+│   │   ├── date/                     # Date helpers beyond simple formatting
+│   │   ├── charts/                   # Chart wrappers for reuse
+│   │   ├── logger.ts                 # Centralized logging utility
+│   │   └── employeeUtils.ts          # ERP-agnostic Employee helper functions
+│   │
+│   ├── layouts/                      # Layout wrappers (structure of pages)
+│   │   ├── DashboardLayout.tsx       # Main app layout (sidebar, header)
+│   │   ├── Header.tsx            # Header page
+│   │   ├── Footer.tsx            # Footer page
+│   │   ├── AuthLayout.tsx            # Login/register layout
+│   │   └── index.ts
+│   │
+│   ├── routes/                       # Central routing configuration
+│   │   └── index.tsx
+│   │
+│   ├── services/                     # Global services (app-wide)
+│   │   ├── apiClient.ts              # Axios / Fetch wrapper
+│   │   ├── socket.ts                 # WebSocket setup
+│   │   └── localStorage.ts           # Storage abstraction
+│   │
+│   ├── hooks/                        #  Global reusable hooks
+│   │   ├── useAuth.ts
+│   │   ├── usePermissions.ts
+│   │   └── useDebounce.ts
+│   │
+│   ├── constants/                    # App constants (avoid hardcoding)
+│   │   ├── roles.ts
+│   │   ├── routes.ts
+│   │   └── index.ts
+│   │
+│   ├── types/                        #  Global shared types
+│   │   ├── api.types.ts
+│   │   └── global.d.ts
+│   │
+│   ├── utils/                        #  Global helper functions
+│   │   ├── formatDate.ts
+│   │   ├── validators.ts
+│   │   └── index.ts
+│   │
+│   ├── styles/                       # Global styles & theming
+│   │   ├── globals.scss
+│   │   └── theme.ts
+│   │
+│   ├── config/                       # Configuration & environment
+│   │   ├── env.ts
+│   │   └── featureFlags.ts
+│   │
+│   ├── App.tsx                       # Root component
+│   └── main.tsx                      # Entry point (ReactDOM)
+│
+├── package.json
+├── tsconfig.json
+├── vite.config.ts                   # or webpack.config.js
+├── .eslintrc.json
+├── .prettierrc
+└── README.md
+
+
+Folder Descriptions
+app/ (Application Core)
+Central brain of the app
+Redux store, routing, providers
+No business logic here
+assets/
+Stati
+c files (images, icons, fonts)
+Used across the app
+components/
+ui/
+Reusable design system components
+Buttons, Inputs, Modals
+Pure (no business logic)
+common/
+Shared business components
+Example: EmployeeSelector used in multiple features
+features/employee/ 
+api/
+API calls (RTK Query or Axios)
+Example: getEmployees, createEmployee
+components/
+UI specific to employee feature
+Not reused globally
+pages/
+Screens (route-level components)
+Example:
+EmployeeListPage
+EmployeeDetailPage
+store/
+Redux slice + selectors
+Manages employee state
+hooks/
+Custom hooks for employee logic
+Example: useEmployee()
+types/
+TypeScript interfaces/types
+Example: Employee, EmployeeDTO
+utils/
+Helper functions
+Example: formatEmployeeName()
+index.ts
+Barrel export (clean imports)
+layouts/
+App-wide containers & shared UI (header, footer, sidebar).
+Page layouts (Dashboard, Auth)
+Wrap pages with UI structure
+routes/
+Central routing configuration
+Lazy loading features
+services/
+Global services only
+API client, sockets, storage
+hooks/
+Global reusable hooks
+Example: auth, permissions
+constants/
+Enums, roles, route paths
+Avoid hardcoding strings
+types/
+Global shared types
+API response, pagination, etc.
+utils/
+Pure helper functions
+No React, no state
+styles/
+Global styles & themes
+config/
+Environment variables
+Feature flags
+Avoid too much nesting
+There are many pain points associated with deep directory nesting in JavaScript projects. It becomes harder to write relative imports between them, or to update those imports when the files are moved. Unless you have a very compelling reason to use a deep folder structure, consider limiting yourself to a maximum of three or four nested folders within a single project. 
+Naming Convention Guidelines
+Files & Folders
+PascalCase: React components, pages, layouts (EmployeeCard.tsx, DashboardLayout.tsx)
+camelCase: hooks, services, utils (useEmployee.ts, apiClient.ts)
+kebab-case: public assets (company-logo.png, add-user.svg)
+snake_case / UPPER_SNAKE_CASE: constants & enums (ROLES_ADMIN, API_URL)
+feature-specific types: employee.types.ts
+Variables & Functions
+camelCase for variables and functions (getEmployeeList, formatDate)
+PascalCase for classes, components, and React context providers (EmployeeProvider)
+Hooks
+Must start with use prefix: useAuth, useDebounce, useEmployee
+Redux
+Slice files: camelCase (employeeSlice.ts)
+Exported reducers: PascalCase (EmployeeReducer)
+Utils / Lib
+Export functions in camelCase
+Keep feature-agnostic helpers in lib/
+
+
+
