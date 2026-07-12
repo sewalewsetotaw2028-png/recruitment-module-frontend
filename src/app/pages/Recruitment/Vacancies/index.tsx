@@ -92,7 +92,10 @@ export const VacancyHub: React.FC = () => {
       if (selectedVacancyId !== vacancyId) {
         setSelectedVacancyId(vacancyId);
       }
-      if (vacancyHubView !== 'detail') {
+      // if (vacancyHubView !== 'detail') {
+      //   setVacancyHubView('detail');
+      // }
+       if (vacancyHubView === 'list') {
         setVacancyHubView('detail');
       }
     } else if (location.pathname === '/dashboard/vacancies' || location.pathname === '/dashboard/vacancies/') {
