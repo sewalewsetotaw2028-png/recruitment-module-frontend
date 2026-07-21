@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useScreeningSlice, screeningActions } from "./slice";
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
@@ -195,12 +194,6 @@ export const ScreeningPage: React.FC = () => {
     }
   }, [actionSuccess, dispatch, navigate, pendingShortlistName, toast]);
 
-  useEffect(() => {
-    if (actionError) {
-      toast(actionError, "error");
-    }
-  }, [actionError, toast]);
-
   const matchCandidateFilters = (app: (typeof applications)[0]) => {
     if (
       filters.vacancyFilterId !== "all" &&
@@ -350,7 +343,7 @@ export const ScreeningPage: React.FC = () => {
             onChange: (value) => handleFilterChange({ vacancyFilterId: value }),
             options: [
               { value: "all", label: "All vacancies" },
-              ...vacancyOptions
+              ...(vacancyOptions as { value: string; label: string }[])
             ]
           },
           {
@@ -415,7 +408,7 @@ export const ScreeningPage: React.FC = () => {
             </p>
           ) : (
             <div className="flex flex-wrap gap-2">
-              {activeCriteriaToShow.map((criterion, index) => (
+              {activeCriteriaToShow.map((criterion: any, index: number) => (
                 <span
                   key={`${criterion.field}-${index}`}
                   className={`rounded-full px-3 py-1 text-[11px] font-semibold border ${
@@ -465,7 +458,7 @@ export const ScreeningPage: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredApplications.map((application) => (
+            {filteredApplications.map((application: any) => (
               <CandidateCard
                 key={application.id}
                 record={application}
@@ -598,7 +591,10 @@ export const ScreeningPage: React.FC = () => {
                           {criterion.field}
                         </p>
                         <p className="text-xs text-slate-500">
-                          Expected: {String(criterion.value ?? "required")}
+                          Expected:{' '}
+                          {Array.isArray(criterion.value)
+                            ? criterion.value.join(', ')
+                            : String(criterion.value ?? 'required')}
                         </p>
                         {criterion.actualValue !== undefined && (
                           <p className="text-xs text-slate-500">

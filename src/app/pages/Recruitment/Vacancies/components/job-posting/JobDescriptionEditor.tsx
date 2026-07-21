@@ -3,6 +3,7 @@ import type { JobTemplate, Vacancy } from '@/types';
 import { RichTextField } from './RichTextField';
 import { usePermissions } from '@/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions-shared';
+import { fetchCompanyProfile } from '@/hooks/useCompanyProfile';
 
 export interface JobDescriptionForm {
   title: string;
@@ -55,6 +56,11 @@ export const JobDescriptionEditor: React.FC<JobDescriptionEditorProps> = ({
   const [templateFilter, setTemplateFilter] = useState<
     'all' | 'premium' | 'core' | 'standard'
   >('all');
+  const [companyProfile, setCompanyProfile] = useState<any>(null);
+  // Template confirmation dialog state
+  const [pendingTemplateId, setPendingTemplateId] = useState<string | null>(null);
+  // Track saved state — true once Save Draft is clicked, reset on any change
+  const [isSaved, setIsSaved] = useState(false);
 
   const [form, setForm] = useState<JobDescriptionForm>({
     title: vacancy.title || '',
@@ -80,10 +86,23 @@ export const JobDescriptionEditor: React.FC<JobDescriptionEditorProps> = ({
     });
   }, [vacancy]);
 
+  useEffect(() => {
+    const loadCompanyProfile = async () => {
+      try {
+        const profile = await fetchCompanyProfile();
+        setCompanyProfile(profile);
+      } catch (error) {
+        console.error('Failed to load company profile:', error);
+      }
+    };
+    void loadCompanyProfile();
+  }, []);
+
   const update = (patch: Partial<JobDescriptionForm>) => {
     const updatedForm = { ...form, ...patch };
     setForm(updatedForm);
     onChange(updatedForm);
+    setIsSaved(false); // any edit marks as unsaved
   };
 
   const addSkill = () => {
@@ -158,19 +177,31 @@ export const JobDescriptionEditor: React.FC<JobDescriptionEditorProps> = ({
           {canUpdate && (
             <button
               type="button"
-              onClick={() => onSave(form)}
+              onClick={() => { onSave(form); setIsSaved(true); }}
               className="px-4 py-2 border border-indigo-600 bg-white text-indigo-600 text-sm font-semibold rounded-lg shadow-sm hover:bg-indigo-50 active:bg-indigo-100/70 transition-all duration-150"
             >
               Save Draft
             </button>
           )}
-          {canUpdate ? (
+          {canUpdate && isSaved ? (
             <button
               type="button"
               onClick={onContinueToPosting}
               className="px-5 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-indigo-700 active:bg-indigo-800 transition-all duration-150"
             >
               Continue to Posting →
+            </button>
+          ) : canUpdate && !isSaved ? (
+            <button
+              type="button"
+              title="Save your changes first before continuing"
+              onClick={() => { onSave(form); setIsSaved(true); }}
+              className="px-5 py-2 bg-slate-200 text-slate-500 text-sm font-semibold rounded-lg shadow-sm cursor-not-allowed select-none border border-slate-300 relative group"
+            >
+              Continue to Posting →
+              <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                Save draft first
+              </span>
             </button>
           ) : (
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-400 text-sm font-semibold rounded-lg border border-slate-200 cursor-not-allowed select-none">
@@ -217,7 +248,7 @@ export const JobDescriptionEditor: React.FC<JobDescriptionEditorProps> = ({
                 <button
                   key={t.id}
                   type="button"
-                  onClick={() => canUpdate && onApplyTemplate(t.id)}
+                  onClick={() => canUpdate && setPendingTemplateId(t.id)}
                   disabled={!canUpdate}
                   className={`w-full text-left p-3.5 rounded-xl border transition-all duration-150 flex flex-col gap-1.5 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${
                     vacancy.jobTemplateId === t.id
@@ -304,6 +335,23 @@ export const JobDescriptionEditor: React.FC<JobDescriptionEditorProps> = ({
             <section
               className={activeSection === 'Overview' ? 'space-y-4' : 'hidden'}
             >
+              {/* Company Description (Non-editable) */}
+              {companyProfile?.description && (
+                <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl p-5 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="material-symbols-outlined text-indigo-600 text-xl">
+                      business
+                    </span>
+                    <h4 className="text-sm font-bold text-indigo-800 uppercase tracking-wider">
+                      About {companyProfile.name || 'Our Company'}
+                    </h4>
+                  </div>
+                  <p className="text-sm text-slate-700 leading-relaxed">
+                    {companyProfile.description}
+                  </p>
+                </div>
+              )}
+
               <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
                 <span className="material-symbols-outlined text-slate-400 text-xl">
                   subject
@@ -470,6 +518,46 @@ export const JobDescriptionEditor: React.FC<JobDescriptionEditorProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Template Apply Confirmation Dialog */}
+      {pendingTemplateId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 border border-slate-200">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                <span className="material-symbols-outlined text-amber-600 text-xl">warning</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">Apply Template?</h3>
+                <p className="text-sm text-slate-600 mt-1 leading-relaxed">
+                  Applying this template will overwrite the current job description, responsibilities, requirements, and skills you have entered.
+                </p>
+                <p className="text-xs text-slate-400 mt-2 font-medium">This action cannot be undone unless you have already saved a draft.</p>
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setPendingTemplateId(null)}
+                className="px-4 py-2 border border-slate-200 text-slate-700 text-sm font-semibold rounded-lg hover:bg-slate-50 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onApplyTemplate(pendingTemplateId);
+                  setIsSaved(false);
+                  setPendingTemplateId(null);
+                }}
+                className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-sm"
+              >
+                Apply Template
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

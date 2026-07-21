@@ -8,6 +8,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const dispatch = useAppDispatch();
 
   useEffect(() => {
+    // Check for OAuth/magic link tokens in URL hash (cross-origin localStorage workaround)
+    const hash = window.location.hash;
+    if (hash && (hash.includes('token=') || hash.includes('access_token='))) {
+      try {
+        const params = new URLSearchParams(hash.replace('#', ''));
+        const token = params.get('token') || params.get('access_token') || '';
+        const refreshToken = params.get('refreshToken') || '';
+        if (token) {
+          localStorage.setItem('token', token);
+          if (refreshToken) {
+            localStorage.setItem('refreshToken', refreshToken);
+          }
+          // Clear hash to prevent re-processing on subsequent navigations
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      } catch (e) {
+        console.error('Failed to parse auth tokens from URL hash:', e);
+      }
+    }
+
     const handleUnauthorized = () => {
       dispatch(authActions.logoutSuccess());
     };

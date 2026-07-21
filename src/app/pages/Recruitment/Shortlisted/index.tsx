@@ -133,7 +133,7 @@ export const ShortlistedPage: React.FC = () => {
             onChange: setVacancyFilterId,
             options: [
               { value: 'all', label: 'All vacancies' },
-              ...(vacancyOptions as any[]),
+              ...(vacancyOptions as { value: string; label: string }[]),
             ],
           },
         ]}

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { call, put, takeLatest } from 'redux-saga/effects';
 import makeCall from '@/API';
 import { API_ROUTES } from '@/API/apiRoutes';
@@ -297,31 +296,42 @@ function* updateExperienceSaga(
 ): Generator {
   const { payload: exp, file } = action.payload;
   try {
-    const body = file
-      ? new FormData()
-      : {
-          company_name: exp.companyName,
-          job_title: exp.position,
-          start_date: exp.startDate,
-          end_date: exp.endDate,
-          description: exp.description,
-          document_url: exp.documentUrl,
+    let body:
+      | FormData
+      | {
+          company_name: string;
+          job_title: string;
+          start_date: string;
+          end_date?: string;
+          description?: string;
+          document_url?: string;
         };
 
     if (file) {
-      body.append('company_name', exp.companyName || '');
-      body.append('job_title', exp.position || '');
-      body.append('start_date', exp.startDate || '');
+      const formData = new FormData();
+      formData.append('company_name', exp.companyName || '');
+      formData.append('job_title', exp.position || '');
+      formData.append('start_date', exp.startDate || '');
       if (exp.endDate) {
-        body.append('end_date', exp.endDate);
+        formData.append('end_date', exp.endDate);
       }
       if (exp.description) {
-        body.append('description', exp.description);
+        formData.append('description', exp.description);
       }
       if (exp.documentUrl) {
-        body.append('document_url', exp.documentUrl);
+        formData.append('document_url', exp.documentUrl);
       }
-      body.append('document', file);
+      formData.append('document', file);
+      body = formData;
+    } else {
+      body = {
+        company_name: exp.companyName,
+        job_title: exp.position,
+        start_date: exp.startDate,
+        end_date: exp.endDate,
+        description: exp.description,
+        document_url: exp.documentUrl,
+      };
     }
 
     const { data } = yield call(makeCall<{ status: string; data: ApiRaw }>, {
@@ -368,8 +378,8 @@ function* deleteExperienceSaga(
 function* addEducationSaga(
   action: ReturnType<typeof candidateProfileActions.addEducationRequest>,
 ): Generator {
-  const { education, file } = action.payload as {
-    education: Education;
+  const { payload: education, file } = action.payload as {
+    payload: Partial<Education>;
     file: File | null;
   };
   try {
@@ -411,27 +421,37 @@ function* updateEducationSaga(
     file?: File | null;
   };
   try {
-    const body = file
-      ? new FormData()
-      : {
-          institution_name: edu.institution,
-          degree: edu.degree,
-          field_of_study: edu.fieldOfStudy,
-          graduation_year: edu.graduationYear,
-          certificate_url: edu.certificateUrl,
+    let body:
+      | FormData
+      | {
+          institution_name: string;
+          degree: string;
+          field_of_study: string;
+          graduation_year?: number;
+          certificate_url?: string;
         };
 
     if (file) {
-      body.append('institution_name', edu.institution || '');
-      body.append('degree', edu.degree || '');
-      body.append('field_of_study', edu.fieldOfStudy || '');
+      const formData = new FormData();
+      formData.append('institution_name', edu.institution || '');
+      formData.append('degree', edu.degree || '');
+      formData.append('field_of_study', edu.fieldOfStudy || '');
       if (edu.graduationYear !== undefined) {
-        body.append('graduation_year', String(edu.graduationYear));
+        formData.append('graduation_year', String(edu.graduationYear));
       }
       if (edu.certificateUrl) {
-        body.append('certificate_url', edu.certificateUrl);
+        formData.append('certificate_url', edu.certificateUrl);
       }
-      body.append('certificate', file);
+      formData.append('certificate', file);
+      body = formData;
+    } else {
+      body = {
+        institution_name: edu.institution,
+        degree: edu.degree,
+        field_of_study: edu.fieldOfStudy,
+        graduation_year: edu.graduationYear,
+        certificate_url: edu.certificateUrl,
+      };
     }
 
     const { data } = yield call(makeCall<{ status: string; data: ApiRaw }>, {

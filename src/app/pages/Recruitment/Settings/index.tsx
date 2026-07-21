@@ -11,7 +11,7 @@ export const HRSettingsPage: React.FC = () => {
   const { toast } = useToast();
   const { can } = usePermissions();
   const { hrisIntegrationAvailable, hrisManualMode, setHrisManualModeState } =
-    useApp() as any;
+    useApp();
   const [settingsTab, setSettingsTab] = useState<'config' | 'notifications'>(
     'config',
   );

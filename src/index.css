@@ -870,8 +870,7 @@ select:focus-visible {
   min-height: 100vh;
   grid-template-columns: minmax(0, 1.05fr) minmax(360px, 480px);
   background:
-    linear-gradient(135deg, rgba(15, 40, 71, 0.94), rgba(15, 118, 110, 0.9)),
-    url('/src/assets/hero.png') center/cover;
+    linear-gradient(135deg, rgba(15, 40, 71, 0.94), rgba(15, 118, 110, 0.9));
   color: #ffffff;
 }
 

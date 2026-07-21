@@ -1,4 +1,3 @@
-// @ts-nocheck
 import makeCall from '@/API';
 import { API_ROUTES } from '@/API/apiRoutes';
 import type { RecruitmentRequest } from '@/types';
@@ -153,6 +152,7 @@ export const mapApiRecruitmentRequest = (raw: any): RecruitmentRequest => {
     workforcePlanItemId: asString(raw.workforce_plan_item_id),
     workforcePlanReference: asString(raw.workforce_plan_reference) ||
       asString(raw.workforce_plan_item?.workforce_plan?.title),
+    positionName: asString(raw.position_name),
     requestTitle: title,
     requestedBy: asString(raw.requested_by_user_id) || asString(raw.requestedBy) || '',
     requestedByName,
@@ -232,17 +232,29 @@ export const mapApiRecruitmentRequest = (raw: any): RecruitmentRequest => {
     hrReviewNotes: (() => {
       const c = asString(raw.hr_comments) || '';
       if (!c) return undefined;
-      const stripped = c.replace(/__doc::[^\n]*\n?/, '').trim();
-      // Only show as review notes when not rejected (rejection uses same field)
+      // Strip both __doc:: and __ceo_notes:: tags, keep only human HR notes
+      const stripped = c
+        .replace(/__doc::[^\n]*\n?/g, '')
+        .replace(/__ceo_notes::[^\n]*\n?/g, '')
+        .trim();
       if (stripped && raw.status !== 'REJECTED' && asString(raw.status)?.toLowerCase() !== 'rejected') {
         return stripped;
       }
       return undefined;
     })(),
+    ceoApprovalNotes: (() => {
+      const c = asString(raw.hr_comments) || '';
+      if (!c) return undefined;
+      const match = c.match(/__ceo_notes::([^\n]+)/);
+      return match ? match[1].trim() : undefined;
+    })(),
     rejectionReason: (() => {
       const c = asString(raw.hr_comments) || '';
       if (!c) return undefined;
-      const stripped = c.replace(/__doc::[^\n]*\n?/, '').trim();
+      const stripped = c
+        .replace(/__doc::[^\n]*\n?/g, '')
+        .replace(/__ceo_notes::[^\n]*\n?/g, '')
+        .trim();
       const st = asString(raw.status)?.toUpperCase();
       if (stripped && (st === 'REJECTED')) return stripped;
       return undefined;
@@ -254,6 +266,9 @@ export const mapApiRecruitmentRequest = (raw: any): RecruitmentRequest => {
       }
       return undefined;
     })(),
+    approvedAt: asString(raw.approved_at) || undefined,
+    hrReviewedByName: asString(raw.hr_reviewed_by_name) || undefined,
+    hrReviewDate: asString(raw.hr_review_date) || asString(raw.updated_at) || undefined,
     linkedVacancyId: asString(raw.vacancy?.id),
     customFieldValues: raw.custom_field_values || {},
     createdAt: asString(raw.created_at) || new Date().toISOString(),
@@ -380,11 +395,12 @@ export const hrReviewRecruitmentRequest = async (
   });
 };
 
-export const approveRecruitmentRequest = async (id: string): Promise<void> => {
+export const approveRecruitmentRequest = async (id: string, notes?: string): Promise<void> => {
   await makeCall({
     method: 'POST',
     route: API_ROUTES.recruitment.approveRequest(id),
     isSecureRoute: true,
+    body: notes ? { notes } : undefined,
   });
 };
 

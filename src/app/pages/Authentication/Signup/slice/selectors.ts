@@ -15,3 +15,8 @@ export const selectSignupPageError = createSelector(
   [selectDomain],
   (s) => s.error,
 );
+
+export const selectSignupSuccess = createSelector(
+  [selectDomain],
+  (s) => s.signupSuccess,
+);

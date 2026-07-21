@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp } from '@/state';
 import { useAppDispatch, useAppSelector } from '@/hooks';
@@ -10,8 +9,8 @@ import { selectRecruitmentRequests, selectLastCreatedRequestId } from '../slice/
 import { useToast } from '@/components/common/Toast';
 import { apiFetch } from '@/services/apiClient';
 import { API_ROUTES } from '@/API/apiRoutes';
-import { FrDemoPanel } from '@/components/FrDemoPanel';
-import { getFrForScreen } from '@/data/frRegistry';
+// import { FrDemoPanel } from '@/components/FrDemoPanel';
+// import { getFrForScreen } from '@/data/frRegistry';
 import { RecruitmentRequestList } from './RecruitmentRequestList';
 import { RecruitmentRequestCreateForm } from '@/pages/Recruitment/RecruitmentRequestCreate/components/RecruitmentRequestCreateForm';
 import type {
@@ -174,27 +173,6 @@ export const RecruitmentRequestHub: React.FC<Props> = ({ portal }) => {
       });
   }, [lastCreatedRequestId]);
 
-  useEffect(() => {
-    if (!pendingAction || actionLoading) return;
-
-    if (actionError) {
-      toast(actionError, 'error');
-      setPendingAction(null);
-      return;
-    }
-
-    toast(
-      pendingAction === 'draft'
-        ? 'Draft request saved.'
-        : 'Request submitted. HR will review next.',
-      'success',
-    );
-    setPendingAction(null);
-    setView('list');
-    setSelectedId(null);
-    setEditingId(null);
-    resetForm();  }, [actionError, actionLoading, pendingAction, resetForm, toast]);
-
   // ── Real hiring managers from backend ──────────────────────────────────────
   const [backendHiringManagers, setBackendHiringManagers] = useState<
     Array<{ id: string; firstName: string; lastName: string }>
@@ -226,7 +204,7 @@ export const RecruitmentRequestHub: React.FC<Props> = ({ portal }) => {
 
   const hiringManagers = backendHiringManagers;
 
-  const resetForm = useCallback(() => {
+  const resetFormState = () => {
     const defaultDept =
       portal === 'department_manager'
         ? {
@@ -245,7 +223,36 @@ export const RecruitmentRequestHub: React.FC<Props> = ({ portal }) => {
     });
     setDocUploaded(false);
     setEditingId(null);
-  }, [currentUser, departments, hiringManagers, portal]);
+  };
+
+  const resetForm = useCallback(resetFormState, [
+    currentUser,
+    departments,
+    hiringManagers,
+    portal,
+  ]);
+
+  useEffect(() => {
+    if (!pendingAction || actionLoading) return;
+
+    if (actionError) {
+      toast(actionError, 'error');
+      setPendingAction(null);
+      return;
+    }
+
+    toast(
+      pendingAction === 'draft'
+        ? 'Draft request saved.'
+        : 'Request submitted. HR will review next.',
+      'success',
+    );
+    setPendingAction(null);
+    setView('list');
+    setSelectedId(null);
+    setEditingId(null);
+    resetFormState();
+  }, [actionError, actionLoading, pendingAction, toast]);
   const loadRequest = useCallback((req: RecruitmentRequest) => {
     setForm(payloadFromRequest(req));
     setDocUploaded(Boolean(req.supportingDocumentName));
@@ -463,10 +470,10 @@ export const RecruitmentRequestHub: React.FC<Props> = ({ portal }) => {
 
   return (
     <div className="space-y-lg">
-      <FrDemoPanel
+      {/* <FrDemoPanel
         screenKey={screenKey}
         requirements={getFrForScreen(screenKey)}
-      />
+      /> */}
 
       <TraceabilityBanner />
 
@@ -632,7 +639,7 @@ export const RecruitmentRequestHub: React.FC<Props> = ({ portal }) => {
               }
               onCeoApprove={(requestId: string, notes?: string) =>
                 dispatch(
-                  recruitmentRequestsActions.ceoApproveRequestRequest({
+                  recruitmentRequestsActions.approveRequestRequest({
                     requestId,
                     notes,
                   }),
@@ -647,11 +654,7 @@ export const RecruitmentRequestHub: React.FC<Props> = ({ portal }) => {
                 )
               }
               onReopen={(requestId: string) =>
-                dispatch(
-                  recruitmentRequestsActions.reopenRequestRequest({
-                    requestId,
-                  }),
-                )
+                void requestId
               }
               onCreateVacancy={createVacancyFromApprovedRequest}
               setRequestViewIntent={setRequestViewIntent}
@@ -887,6 +890,41 @@ function DetailView({
               <p className="font-bold text-slate-900">Justification</p>
               <p className="mt-2 text-slate-600 italic">{req.justification}</p>
             </div>
+
+            {/* Review Notes */}
+            {(req.hrReviewNotes || req.ceoApprovalNotes) && (
+              <div className="pt-4 border-t border-slate-100 space-y-4">
+                <p className="font-bold text-slate-900">Review Notes</p>
+                {req.hrReviewNotes && (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-slate-400 text-[16px]">rate_review</span>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">HR Review Comment</p>
+                    </div>
+                    {req.hrReviewedByName && (
+                      <p className="text-[11px] text-slate-400">
+                        by {req.hrReviewedByName}{req.hrReviewDate ? ` · ${req.hrReviewDate.slice(0,10)}` : ''}
+                      </p>
+                    )}
+                    <p className="text-sm text-slate-700 mt-1 italic">{req.hrReviewNotes}</p>
+                  </div>
+                )}
+                {req.ceoApprovalNotes && (
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-emerald-600 text-[16px]">verified</span>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">CEO Approval Comment</p>
+                    </div>
+                    {req.approvedByName && (
+                      <p className="text-[11px] text-emerald-500">
+                        by {req.approvedByName}{req.approvedAt ? ` · ${req.approvedAt.slice(0,10)}` : ''}
+                      </p>
+                    )}
+                    <p className="text-sm text-emerald-800 mt-1 italic">{req.ceoApprovalNotes}</p>
+                  </div>
+                )}
+              </div>
+            )}
             {req.supportingDocumentName && (
               <div className="pt-4 border-t border-slate-100 mt-4">
                 <p className="font-bold text-slate-900">Supporting Document</p>

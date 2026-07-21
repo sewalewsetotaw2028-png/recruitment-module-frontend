@@ -33,6 +33,5 @@ export interface RecruitmentDataState {
   talentPool: TalentPoolEntry[];
   hrisIntegrationAvailable: boolean;
   hrisManualMode: boolean;
-  usingMockData: boolean;
   savedJobIds: string[];
 }

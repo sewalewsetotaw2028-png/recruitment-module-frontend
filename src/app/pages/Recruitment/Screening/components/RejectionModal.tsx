@@ -23,6 +23,20 @@ export const RejectionModal: React.FC<RejectionModalProps> = ({
   const [addToTalentRoster, setAddToTalentRoster] = React.useState(true);
   const [futureFitTag, setFutureFitTag] = React.useState('Wealth Advisory');
 
+  const rejectionReasons = [
+    'Lack of direct experience',
+    'Skills mismatch',
+    'Salary expectations too high',
+    'Insufficient qualifications',
+    'Cultural fit concerns',
+    'Position filled internally',
+    'Budget constraints',
+    'Candidate withdrew',
+    'Poor communication skills',
+    'Failed background check',
+    'Other',
+  ];
+
   React.useEffect(() => {
     if (!isOpen) {
       setNotes('');
@@ -61,10 +75,11 @@ export const RejectionModal: React.FC<RejectionModalProps> = ({
             onChange={(e) => setReason(e.target.value)}
             className={`${fieldInputStyle} appearance-none cursor-pointer`}
           >
-            <option>Lack of direct experience</option>
-            <option>Skills mismatch</option>
-            <option>Salary expectations too high</option>
-            <option>Other</option>
+            {rejectionReasons.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -95,23 +110,7 @@ export const RejectionModal: React.FC<RejectionModalProps> = ({
           </label>
         </div>
 
-        {addToTalentRoster && (
-          <div className="animate-fadeIn">
-            <label className={labelHeaderStyle}>Future Fit Tag</label>
-            <select
-              value={futureFitTag}
-              onChange={(e) => setFutureFitTag(e.target.value)}
-              className={`${fieldInputStyle} appearance-none cursor-pointer`}
-            >
-              <option>Wealth Advisory</option>
-              <option>Corporate Banking</option>
-              <option>Investment Banking</option>
-              <option>Retail Banking</option>
-              <option>Operations</option>
-              <option>Technology</option>
-            </select>
-          </div>
-        )}
+        
 
         <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
           <Button

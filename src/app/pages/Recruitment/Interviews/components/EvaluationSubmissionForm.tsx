@@ -1,8 +1,6 @@
-// @ts-nocheck
 import React, { useEffect, useMemo, useState } from 'react';
 import type {
   Interview,
-  EvaluationTemplate,
   InterviewEvaluation,
   SubmitEvaluationPayload,
 } from '@/hooks/useInterviewEvaluations';
@@ -12,7 +10,10 @@ import {
   updateEvaluation,
   fetchEvaluationSummary,
 } from '@/hooks/useInterviewEvaluations';
-import { fetchEvaluationTemplates } from '@/hooks/useEvaluationTemplates';
+import {
+  fetchEvaluationTemplates,
+  type EvaluationTemplate as EvaluationTemplateConfig,
+} from '@/hooks/useEvaluationTemplates';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/components/common/Toast';
 import { useSession } from '@/hooks/useSession';
@@ -41,7 +42,7 @@ export const EvaluationSubmissionForm: React.FC<
   const { user } = useSession();
 
   const [interview, setInterview] = useState<Interview | null>(null);
-  const [template, setTemplate] = useState<EvaluationTemplate | null>(null);
+  const [template, setTemplate] = useState<EvaluationTemplateConfig | null>(null);
   const [existingEvaluation, setExistingEvaluation] =
     useState<InterviewEvaluation | null>(null);
   const [loading, setLoading] = useState(false);

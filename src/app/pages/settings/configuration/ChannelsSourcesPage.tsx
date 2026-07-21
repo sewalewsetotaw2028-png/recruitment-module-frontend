@@ -183,15 +183,23 @@ export const ChannelsSourcesPage: React.FC = () => {
         setChannels(channelData);
         setSources(sourceData);
 
+        // Filter out excluded channels for selection
+        const filteredChannelData = channelData.filter((ch) => {
+          const name = ch.name.toLowerCase();
+          return !name.includes('glassdoor') && 
+                 !name.includes('university portal') && 
+                 !name.includes('indeed');
+        });
+
         setSelectedChannelId((current) => {
           const candidate =
             options?.preferredChannelId !== undefined
               ? options.preferredChannelId
               : current;
-          if (candidate && channelData.some((item) => item.id === candidate)) {
+          if (candidate && filteredChannelData.some((item) => item.id === candidate)) {
             return candidate;
           }
-          return channelData[0]?.id ?? null;
+          return filteredChannelData[0]?.id ?? null;
         });
 
         setSelectedSourceId((current) => {
@@ -229,7 +237,14 @@ export const ChannelsSourcesPage: React.FC = () => {
 
   useEffect(() => {
     if (activeTab === 'channels' && !selectedChannel && channels.length > 0) {
-      setSelectedChannelId(channels[0].id);
+      // Filter out excluded channels for auto-selection
+      const filteredChannels = channels.filter((ch) => {
+        const name = ch.name.toLowerCase();
+        return !name.includes('glassdoor') && 
+               !name.includes('university portal') && 
+               !name.includes('indeed');
+      });
+      setSelectedChannelId(filteredChannels[0]?.id ?? null);
     }
   }, [activeTab, channels, selectedChannel]);
 
@@ -241,13 +256,25 @@ export const ChannelsSourcesPage: React.FC = () => {
 
   const filteredChannels = useMemo(() => {
     const query = channelSearch.trim().toLowerCase();
-    if (!query) return channels;
+    if (!query) {
+      return channels.filter((channel) => {
+        const name = channel.name.toLowerCase();
+        return !name.includes('glassdoor') && 
+               !name.includes('university portal') && 
+               !name.includes('indeed');
+      });
+    }
     return channels.filter((channel) => {
-      return (
+      const name = channel.name.toLowerCase();
+      const matchesSearch = (
         channel.name.toLowerCase().includes(query) ||
         (channel.description ?? '').toLowerCase().includes(query) ||
         (channel.api_url ?? '').toLowerCase().includes(query)
       );
+      const excluded = name.includes('glassdoor') || 
+                       name.includes('university portal') || 
+                       name.includes('indeed');
+      return matchesSearch && !excluded;
     });
   }, [channelSearch, channels]);
 
@@ -590,8 +617,9 @@ export const ChannelsSourcesPage: React.FC = () => {
               />
             )}
             <FieldCard
-              label="Share Template"
-              value={selectedChannel.share_template || 'Not configured'}
+              label="Apply Link / Share Template"
+              value={selectedChannel.share_template || 'Not set — using default localhost link'}
+              mono={!!selectedChannel.share_template}
             />
           </div>
 
@@ -1087,203 +1115,240 @@ export const ChannelsSourcesPage: React.FC = () => {
             void submitChannel();
           }}
         >
+          {/* Channel-specific integration guide */}
+          {channelDraft.name && (
+            <div className="mb-2 p-3 rounded-xl border text-xs font-medium flex items-start gap-2 bg-slate-50 border-slate-200 text-slate-600">
+              <span className="material-symbols-outlined text-sm shrink-0">info</span>
+              <span>
+                {channelDraft.name.toLowerCase().includes('telegram')
+                  ? 'Telegram: Create a bot via @BotFather, copy the Bot Token. Get your Chat ID using @userinfobot.'
+                  : channelDraft.name.toLowerCase().includes('linkedin')
+                  ? 'LinkedIn: Generate an access token from your LinkedIn Developer App. The Company Page ID is in your LinkedIn Company Admin URL.'
+                  : channelDraft.name.toLowerCase().includes('email')
+                  ? 'Email/SMTP: Enter your SMTP host (e.g. smtp.gmail.com:587), email address, and an App Password.'
+                  : channelDraft.name.toLowerCase().includes('whatsapp')
+                  ? 'WhatsApp: Use WhatsApp Business API. Enter your Phone Number ID and permanent access token from Meta Business Suite.'
+                  : channelDraft.name.toLowerCase().includes('facebook')
+                  ? 'Facebook: Get a Page Access Token from Meta Business Suite. Find your Page ID in your Facebook Page URL.'
+                  : 'Fill in the integration credentials below. Leave API URL blank for manual posting channels.'}
+              </span>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-1.5 md:col-span-2">
-              <label
-                htmlFor="channel-name"
-                className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500"
-              >
+              <label htmlFor="channel-name" className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">
                 Channel Name
               </label>
               <input
                 id="channel-name"
                 type="text"
                 value={channelDraft.name}
-                onChange={(event) =>
-                  setChannelDraft((current) => ({
-                    ...current,
-                    name: event.target.value,
-                  }))
-                }
+                onChange={(e) => setChannelDraft((c) => ({ ...c, name: e.target.value }))}
                 className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
-                placeholder="e.g. LinkedIn"
+                placeholder="e.g. Telegram, LinkedIn, Email Newsletter"
               />
             </div>
 
             <div className="space-y-1.5 md:col-span-2">
-              <label
-                htmlFor="channel-description"
-                className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500"
-              >
+              <label htmlFor="channel-description" className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">
                 Description
               </label>
               <textarea
                 id="channel-description"
                 value={channelDraft.description}
-                onChange={(event) =>
-                  setChannelDraft((current) => ({
-                    ...current,
-                    description: event.target.value,
-                  }))
-                }
-                rows={3}
+                onChange={(e) => setChannelDraft((c) => ({ ...c, description: e.target.value }))}
+                rows={2}
                 className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
                 placeholder="Short description of this channel"
               />
             </div>
 
-            <label className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 md:col-span-2">
+            <label className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
               <div>
                 <p className="text-sm font-bold text-slate-800">Active</p>
-                <p className="text-xs text-slate-500">
-                  Inactive channels stay saved but won't be used for active
-                  operations.
-                </p>
+                <p className="text-xs text-slate-500">Inactive channels are hidden from posting.</p>
               </div>
-              <input
-                type="checkbox"
-                checked={channelDraft.isActive}
-                onChange={(event) =>
-                  setChannelDraft((current) => ({
-                    ...current,
-                    isActive: event.target.checked,
-                  }))
-                }
-                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"
-              />
+              <input type="checkbox" checked={channelDraft.isActive}
+                onChange={(e) => setChannelDraft((c) => ({ ...c, isActive: e.target.checked }))}
+                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600" />
             </label>
 
-            <label className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 md:col-span-2">
+            <label className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
               <div>
-                <p className="text-sm font-bold text-slate-800">Automated</p>
-                <p className="text-xs text-slate-500">
-                  Automated channels can integrate with APIs or publishing
-                  workflows.
-                </p>
+                <p className="text-sm font-bold text-slate-800">Automated API Posting</p>
+                <p className="text-xs text-slate-500">Jobs posted automatically via this channel's API.</p>
               </div>
-              <input
-                type="checkbox"
-                checked={channelDraft.isAutomated}
-                onChange={(event) =>
-                  setChannelDraft((current) => ({
-                    ...current,
-                    isAutomated: event.target.checked,
-                  }))
-                }
-                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"
-              />
+              <input type="checkbox" checked={channelDraft.isAutomated}
+                onChange={(e) => setChannelDraft((c) => ({ ...c, isAutomated: e.target.checked }))}
+                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600" />
             </label>
+
+            {/* Telegram */}
+            {channelDraft.name.toLowerCase().includes('telegram') && (<>
+              <div className="space-y-1.5 md:col-span-2">
+                <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Bot Token <span className="text-rose-500">*</span></label>
+                <input type="password" value={channelDraft.apiToken}
+                  onChange={(e) => setChannelDraft((c) => ({ ...c, apiToken: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                  placeholder="110201543:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw" />
+                <p className="text-[11px] text-slate-500">From @BotFather on Telegram after creating your bot.</p>
+              </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Chat ID (Channel or Group) <span className="text-rose-500">*</span></label>
+                <input type="text" value={channelDraft.apiUsername}
+                  onChange={(e) => setChannelDraft((c) => ({ ...c, apiUsername: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-mono text-slate-700 shadow-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                  placeholder="-1001234567890 or @yourchannel" />
+                <p className="text-[11px] text-slate-500">Add @userinfobot to your group and send a message to get the Chat ID. Public channels use @channelname.</p>
+              </div>
+            </>)}
+
+            {/* LinkedIn */}
+            {channelDraft.name.toLowerCase().includes('linkedin') && (<>
+              <div className="space-y-1.5 md:col-span-2">
+                <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">LinkedIn API URL</label>
+                <input type="text" value={channelDraft.apiUrl}
+                  onChange={(e) => setChannelDraft((c) => ({ ...c, apiUrl: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                  placeholder="https://api.linkedin.com/v2/jobPostings" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Access Token <span className="text-rose-500">*</span></label>
+                <input type="password" value={channelDraft.apiToken}
+                  onChange={(e) => setChannelDraft((c) => ({ ...c, apiToken: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                  placeholder="Bearer access token" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Company Page ID <span className="text-rose-500">*</span></label>
+                <input type="text" value={channelDraft.apiUsername}
+                  onChange={(e) => setChannelDraft((c) => ({ ...c, apiUsername: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-mono text-slate-700 shadow-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                  placeholder="e.g. 12345678" />
+                <p className="text-[11px] text-slate-500">Found in your LinkedIn Company Admin page URL.</p>
+              </div>
+            </>)}
+
+            {/* Email/SMTP */}
+            {channelDraft.name.toLowerCase().includes('email') && (<>
+              <div className="space-y-1.5 md:col-span-2">
+                <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">SMTP Host <span className="text-rose-500">*</span></label>
+                <input type="text" value={channelDraft.apiUrl}
+                  onChange={(e) => setChannelDraft((c) => ({ ...c, apiUrl: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-mono text-slate-700 shadow-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                  placeholder="smtp.gmail.com:587" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Email Address <span className="text-rose-500">*</span></label>
+                <input type="email" value={channelDraft.apiUsername}
+                  onChange={(e) => setChannelDraft((c) => ({ ...c, apiUsername: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                  placeholder="jobs@yourcompany.com" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">App Password <span className="text-rose-500">*</span></label>
+                <input type="password" value={channelDraft.apiToken}
+                  onChange={(e) => setChannelDraft((c) => ({ ...c, apiToken: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                  placeholder="16-character app password" />
+                <p className="text-[11px] text-slate-500">Gmail: Google Account → Security → App Passwords.</p>
+              </div>
+            </>)}
+
+            {/* WhatsApp */}
+            {channelDraft.name.toLowerCase().includes('whatsapp') && (<>
+              <div className="space-y-1.5 md:col-span-2">
+                <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">WhatsApp Business API URL <span className="text-rose-500">*</span></label>
+                <input type="text" value={channelDraft.apiUrl}
+                  onChange={(e) => setChannelDraft((c) => ({ ...c, apiUrl: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-mono text-slate-700 shadow-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                  placeholder="https://graph.facebook.com/v18.0/{phone-number-id}/messages" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Phone Number ID <span className="text-rose-500">*</span></label>
+                <input type="text" value={channelDraft.apiUsername}
+                  onChange={(e) => setChannelDraft((c) => ({ ...c, apiUsername: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-mono text-slate-700 shadow-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                  placeholder="e.g. 123456789012345" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Permanent Access Token <span className="text-rose-500">*</span></label>
+                <input type="password" value={channelDraft.apiToken}
+                  onChange={(e) => setChannelDraft((c) => ({ ...c, apiToken: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                  placeholder="Meta permanent access token" />
+              </div>
+            </>)}
+
+            {/* Facebook */}
+            {channelDraft.name.toLowerCase().includes('facebook') && (<>
+              <div className="space-y-1.5 md:col-span-2">
+                <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Graph API URL</label>
+                <input type="text" value={channelDraft.apiUrl}
+                  onChange={(e) => setChannelDraft((c) => ({ ...c, apiUrl: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-mono text-slate-700 shadow-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                  placeholder="https://graph.facebook.com/v18.0/{page-id}/feed" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Page ID <span className="text-rose-500">*</span></label>
+                <input type="text" value={channelDraft.apiUsername}
+                  onChange={(e) => setChannelDraft((c) => ({ ...c, apiUsername: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-mono text-slate-700 shadow-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                  placeholder="e.g. 123456789012345" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Page Access Token <span className="text-rose-500">*</span></label>
+                <input type="password" value={channelDraft.apiToken}
+                  onChange={(e) => setChannelDraft((c) => ({ ...c, apiToken: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                  placeholder="Facebook Page Access Token" />
+              </div>
+            </>)}
+
+            {/* Generic/other */}
+            {!['telegram','linkedin','email','whatsapp','facebook'].some(t => channelDraft.name.toLowerCase().includes(t)) && (<>
+              <div className="space-y-1.5 md:col-span-2">
+                <label htmlFor="channel-api-url" className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">API URL</label>
+                <input id="channel-api-url" type="text" value={channelDraft.apiUrl} spellCheck={false}
+                  onChange={(e) => setChannelDraft((c) => ({ ...c, apiUrl: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                  placeholder="https://example.com/api" />
+                <p className="text-[11px] text-slate-500">Leave blank for manual posting channels.</p>
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="channel-api-token" className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">API Token / Key</label>
+                <input id="channel-api-token" type="password" value={channelDraft.apiToken}
+                  onChange={(e) => setChannelDraft((c) => ({ ...c, apiToken: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                  placeholder="Secret API key or token" />
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="channel-api-username" className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Username / Channel ID</label>
+                <input id="channel-api-username" type="text" value={channelDraft.apiUsername}
+                  onChange={(e) => setChannelDraft((c) => ({ ...c, apiUsername: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                  placeholder="Optional username or channel identifier" />
+              </div>
+            </>)}
 
             <div className="space-y-1.5 md:col-span-2">
-              <label
-                htmlFor="channel-api-url"
-                className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500"
-              >
-                API URL
-              </label>
-              <input
-                id="channel-api-url"
-                type="text"
-                value={channelDraft.apiUrl}
-                onChange={(event) =>
-                  setChannelDraft((current) => ({
-                    ...current,
-                    apiUrl: event.target.value,
-                  }))
-                }
-                spellCheck={false}
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
-                placeholder="https://example.com/api"
-              />
-              <p className="text-[11px] text-slate-500">
-                If this is blank, the channel stays manual.
-              </p>
-            </div>
-
-            <div className="space-y-1.5">
-              <label
-                htmlFor="channel-api-token"
-                className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500"
-              >
-                API Token / Bot Token
-              </label>
-              <input
-                id="channel-api-token"
-                type="password"
-                value={channelDraft.apiToken}
-                onChange={(event) =>
-                  setChannelDraft((current) => ({
-                    ...current,
-                    apiToken: event.target.value,
-                  }))
-                }
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
-                placeholder="Optional token"
-              />
-              {channelDraft.name.toLowerCase().includes('telegram') && (
-                <p className="text-[11px] text-indigo-600 font-medium">
-                  For Telegram: paste your bot token from @BotFather
-                </p>
-              )}
-            </div>
-
-            {/* Telegram chat_id / API username */}
-            <div className="space-y-1.5">
-              <label
-                htmlFor="channel-api-username"
-                className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500"
-              >
-                {channelDraft.name.toLowerCase().includes('telegram')
-                  ? 'Telegram Chat ID'
-                  : 'API Username / Chat ID'}
-              </label>
-              <input
-                id="channel-api-username"
-                type="text"
-                value={channelDraft.apiUsername}
-                onChange={(event) =>
-                  setChannelDraft((current) => ({
-                    ...current,
-                    apiUsername: event.target.value,
-                  }))
-                }
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
-                placeholder={
-                  channelDraft.name.toLowerCase().includes('telegram')
-                    ? 'e.g. -1001234567890 or @yourgroup'
-                    : 'Optional username or ID'
-                }
-              />
-              {channelDraft.name.toLowerCase().includes('telegram') && (
-                <p className="text-[11px] text-slate-500">
-                  Your channel or group chat ID. Forward a message to{' '}
-                  <span className="font-semibold text-indigo-600">@userinfobot</span>{' '}
-                  to find it, or use a negative group ID like{' '}
-                  <span className="font-mono">-1001234567890</span>.
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <label
-                htmlFor="channel-share-template"
-                className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500"
-              >
-                Share Template
+              <label htmlFor="channel-share-template" className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">
+                Apply Link / Share Template <span className="text-slate-400 font-normal">(optional)</span>
               </label>
               <input
                 id="channel-share-template"
-                type="text"
+                type="url"
                 value={channelDraft.shareTemplate}
-                onChange={(event) =>
-                  setChannelDraft((current) => ({
-                    ...current,
-                    shareTemplate: event.target.value,
-                  }))
-                }
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
-                placeholder="Template reference or shortcode"
+                onChange={(e) => setChannelDraft((c) => ({ ...c, shareTemplate: e.target.value }))}
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-mono text-slate-700 shadow-xs focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                placeholder="https://yourcompany.com/login?apply={vacancyId} — used as apply link in downloads"
               />
+              <p className="text-[11px] text-slate-500">
+                When set, Job Posting downloads for this channel will use this URL as the apply link.
+                Leave blank to use the default <code className="bg-slate-100 px-1 rounded">localhost</code> link until you deploy.
+                Use <code className="bg-slate-100 px-1 rounded">{'{vacancyId}'}</code> as a placeholder if needed.
+              </p>
             </div>
           </div>
 

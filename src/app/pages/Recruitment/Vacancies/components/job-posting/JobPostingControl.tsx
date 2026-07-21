@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import type { JobPosting, PostingVisibility, Vacancy } from '@/types';
+import type { JobPosting, PostingVisibility, Vacancy, VacancyStatus } from '@/types';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import {
   channelIcon,
@@ -13,6 +13,7 @@ import {
   getLifecycleProgress,
 } from '@/utils/vacancyManagement';
 import { fetchCompanyChannels, type RawRecruitmentChannel } from '../../jobPostingApi';
+import { fetchCompanyProfile } from '@/hooks/useCompanyProfile';
 import { usePermissions } from '@/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions-shared';
 import type { UserRole } from '@/state/appContext.types';
@@ -48,6 +49,8 @@ interface JobPostingControlProps {
   canPublishVacancy: boolean;
   canManagePosting: boolean;
   canCloseVacancy: boolean;
+  /** Number of applications for this vacancy */
+  applicationsCount?: number;
 }
 
 export const JobPostingControl: React.FC<JobPostingControlProps> = ({
@@ -74,6 +77,7 @@ export const JobPostingControl: React.FC<JobPostingControlProps> = ({
   canPublishVacancy: canPublishProp = false,
   canManagePosting: canManagePostingProp = false,
   canCloseVacancy: canCloseVacancyProp = false,
+  applicationsCount = 0,
 }) => {
   // Derive permissions from the live session — props are kept as optional fallbacks
   const { can } = usePermissions();
@@ -89,7 +93,9 @@ export const JobPostingControl: React.FC<JobPostingControlProps> = ({
   >(null);
 
   // Vacancy lifecycle — same progress/steps as VacancyManagementDetail
-  const lifecycleProgress = getLifecycleProgress(vacancy.vacancyStatus);
+  const normalizedStatus = String(vacancy.vacancyStatus ?? '').toLowerCase();
+  const effectiveStatus = (normalizedStatus === 'published' && applicationsCount > 0) ? 'in_progress' : normalizedStatus;
+  const lifecycleProgress = getLifecycleProgress(effectiveStatus as VacancyStatus);
 
   // Company channels — loaded from the backend
   const [companyChannels, setCompanyChannels] = useState<RawRecruitmentChannel[]>([]);
@@ -131,6 +137,142 @@ export const JobPostingControl: React.FC<JobPostingControlProps> = ({
   const statusBadge = postingStatusBadge(posting.publicationStatus);
   const daysLeft = daysUntilClosing(posting.closingDate || vacancy.closingDate);
 
+  // Company profile for "About the Company" section in downloads
+  const [companyProfile, setCompanyProfile] = useState<{ name?: string; description?: string } | null>(null);
+  useEffect(() => {
+    fetchCompanyProfile().then(p => setCompanyProfile(p as any)).catch(() => {});
+  }, []);
+
+  // Apply link — starts empty so user must type their deployed URL
+  // Falls back to channel share_template if configured, otherwise stays blank
+  const channelApplyLink = (() => {
+    for (const id of selectedChannelIds) {
+      const ch = companyChannels.find(c => c.id === id);
+      if (ch?.share_template) return ch.share_template;
+    }
+    return '';
+  })();
+  // customApplyLink: what user has typed. Seeded from channel link when it first loads.
+  const [customApplyLink, setCustomApplyLink] = useState<string>('');
+  // Seed from channel link once channels load
+  useEffect(() => {
+    if (channelApplyLink && !customApplyLink) {
+      setCustomApplyLink(channelApplyLink);
+    }
+  }, [channelApplyLink]);
+  const applyLink = customApplyLink.trim();
+
+  // Build clean job posting content (same structure as Job Preview) for downloads
+  const buildPostingContent = () => {
+    const deadline = posting.closingDate || vacancy.closingDate;
+    const salary = vacancy.salaryMin != null
+      ? `${vacancy.salaryMin.toLocaleString()} – ${(vacancy.salaryMax ?? vacancy.salaryMin).toLocaleString()} ETB`
+      : null;
+    const sections: { heading?: string; body: string }[] = [];
+
+    // Header block
+    sections.push({ body: [
+      vacancy.title,
+      `${vacancy.departmentName}  |  ${vacancy.location}  |  ${formatEmploymentType(vacancy.employmentType)}`,
+      `Openings: ${vacancy.openPositions}${salary ? `  |  Salary: ${salary}` : ''}`,
+      vacancy.experienceRequired ? `Experience: ${vacancy.experienceRequired}` : '',
+      deadline ? `Apply by: ${new Date(deadline).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}` : '',
+    ].filter(Boolean).join('\n') });
+
+    // About the Company — from company profile
+    if (companyProfile?.description) {
+      sections.push({ heading: `About ${companyProfile.name || 'Our Company'}`, body: companyProfile.description });
+    }
+
+    if (vacancy.description) sections.push({ heading: 'About the Role', body: vacancy.description });
+    if (vacancy.responsibilities) sections.push({ heading: 'Key Responsibilities', body: vacancy.responsibilities });
+    if (vacancy.requirements) sections.push({ heading: 'Requirements & Qualifications', body: vacancy.requirements });
+    if (vacancy.skills?.length) sections.push({ heading: 'Key Skills', body: vacancy.skills.join(' · ') });
+    if (vacancy.benefits) sections.push({ heading: 'Compensation & Benefits', body: vacancy.benefits });
+    if ((vacancy as any).employmentTerms) sections.push({ heading: 'Employment Terms', body: (vacancy as any).employmentTerms });
+
+    sections.push({ heading: 'How to Apply', body: `Apply online: ${applyLink}\nCreate your candidate account, complete your profile, and submit your application.` });
+    return sections;
+  };
+
+  const handleDownloadTxt = () => {
+    const sections = buildPostingContent();
+    const lines: string[] = [];
+    sections.forEach((s, i) => {
+      if (s.heading) {
+        if (i > 0) lines.push('');
+        lines.push(s.heading.toUpperCase());
+        lines.push(s.body);
+      } else {
+        lines.push(s.body);
+      }
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(vacancy.title || 'job-posting').replace(/\s+/g, '-').toLowerCase()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadPdf = () => {
+    const sections = buildPostingContent();
+    const win = window.open('', '_blank');
+    if (!win) return;
+    const deadline = posting.closingDate || vacancy.closingDate;
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>${vacancy.title}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Georgia, 'Times New Roman', serif; color: #1e293b; background: white; padding: 40px; max-width: 800px; margin: 0 auto; }
+  .header { background: #0f172a; color: white; padding: 32px; border-radius: 8px; margin-bottom: 28px; }
+  .header h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 10px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 16px; color: #cbd5e1; font-size: 13px; margin-top: 12px; }
+  .meta span { display: flex; align-items: center; gap: 4px; }
+  .section { margin-bottom: 22px; }
+  .section h2 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #6366f1; border-left: 3px solid #6366f1; padding-left: 10px; margin-bottom: 10px; }
+  .section p { font-size: 14px; line-height: 1.7; white-space: pre-wrap; color: #334155; }
+  .apply-box { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin-top: 28px; }
+  .apply-box h2 { color: #15803d; font-size: 13px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; }
+  .apply-box a { color: #1d4ed8; font-size: 13px; word-break: break-all; }
+  .apply-box p { color: #166534; font-size: 13px; margin-top: 6px; }
+  .deadline { background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 12px 16px; margin-bottom: 24px; font-size: 13px; color: #92400e; }
+  @media print { body { padding: 20px; } }
+</style></head><body>
+<div class="header">
+  <h1>${vacancy.title}</h1>
+  <div class="meta">
+    <span>📍 ${vacancy.location}</span>
+    <span>💼 ${formatEmploymentType(vacancy.employmentType)}</span>
+    <span>🏢 ${vacancy.departmentName}</span>
+    ${vacancy.openPositions > 1 ? `<span>👥 ${vacancy.openPositions} openings</span>` : ''}
+    ${vacancy.salaryMin != null ? `<span>💰 ${vacancy.salaryMin.toLocaleString()}–${(vacancy.salaryMax ?? vacancy.salaryMin).toLocaleString()} ETB</span>` : ''}
+  </div>
+</div>
+${deadline ? `<div class="deadline">⏰ Application deadline: ${new Date(deadline).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</div>` : ''}
+${sections.filter(s => s.heading && s.heading !== 'How to Apply').map(s => `
+<div class="section">
+  <h2>${s.heading}</h2>
+  <p>${s.body.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p>
+</div>`).join('')}
+<div class="apply-box">
+  <h2>How to Apply</h2>
+  <a href="${applyLink}">${applyLink}</a>
+  <p>Create your candidate account, complete your profile, and submit your application.</p>
+  <p style="margin-top:8px;color:#6b7280;font-size:11px;">Ref: ${vacancy.displayCode || vacancy.id}</p>
+</div>
+<script>window.onload=function(){window.print();}<\/script>
+</body></html>`;
+    win.document.write(html);
+    win.document.close();
+  };
+
+  const handleDownloadImage = () => {
+    // Render to canvas via an offscreen div and html2canvas approach
+    // Since html2canvas is not available, open a styled HTML page the user can screenshot
+    handleDownloadPdf();
+  };
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-4 md:p-6 text-slate-700 antialiased selection:bg-indigo-100">
       {/* Read guard */}
@@ -221,9 +363,7 @@ export const JobPostingControl: React.FC<JobPostingControlProps> = ({
 
         <div className="flex flex-wrap items-center gap-2">
            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/60 uppercase tracking-wide">
-              {vacancy.vacancyStatus
-                ? vacancy.vacancyStatus.replace('_', ' ')
-                : 'Draft'}
+              {effectiveStatus.replace('_', ' ')}
             </span>
           {daysLeft !== null && posting.publicationStatus === 'published' && (
             <span className="text-xs font-semibold px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 shadow-sm animate-pulse">
@@ -273,7 +413,7 @@ export const JobPostingControl: React.FC<JobPostingControlProps> = ({
         <div className="flex flex-wrap gap-1.5">
           {LIFECYCLE_STEPS.map((step) => {
             const currentIdx = LIFECYCLE_STEPS.findIndex(
-              (s) => s.status === vacancy.vacancyStatus,
+              (s) => s.status === effectiveStatus,
             );
             const stepIdx = LIFECYCLE_STEPS.findIndex(
               (s) => s.status === step.status,
@@ -397,7 +537,14 @@ export const JobPostingControl: React.FC<JobPostingControlProps> = ({
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
-                {companyChannels.map((ch) => {
+                {companyChannels
+                  .filter((ch) => {
+                    const name = ch.name.toLowerCase();
+                    return !name.includes('glassdoor') && 
+                           !name.includes('university portal') && 
+                           !name.includes('indeed');
+                  })
+                  .map((ch) => {
                   const isSelected = enabledSlugs.includes(ch.id);
                   // Check if this channel already has an active posting row
                   const existingRow = posting.channels.find(
@@ -478,7 +625,7 @@ export const JobPostingControl: React.FC<JobPostingControlProps> = ({
           </div>
 
           {/* Scope Visibility Toggle */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
+          {/* <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
             <h4 className="text-sm font-bold tracking-wider text-slate-900 uppercase">
               Target Ecosystem Visibility
             </h4>
@@ -530,7 +677,7 @@ export const JobPostingControl: React.FC<JobPostingControlProps> = ({
                 </button>
               ))}
             </div>
-          </div>
+          </div> */}
 
           {/* Workflow/Publication Logs */}
           <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-3">
@@ -538,30 +685,39 @@ export const JobPostingControl: React.FC<JobPostingControlProps> = ({
               Audit Trail & History
             </h4>
             <div className="space-y-3 max-h-48 overflow-y-auto pr-2 divide-y divide-slate-100">
-              {[
-                ...vacancy.statusHistory.map((h) => ({
-                  id: h.id,
-                  action: h.fromStatus
-                    ? `Status: ${h.fromStatus.replace('_', ' ')} → ${h.toStatus.replace('_', ' ')}${h.notes ? ` — ${h.notes}` : ''}`
-                    : `Status set to ${h.toStatus.replace('_', ' ')}`,
-                  actorName: h.actorName || 'System',
-                  timestamp: h.timestamp,
-                })),
-                ...vacancy.activities.map((a) => ({
-                  id: a.id,
-                  action: a.action,
-                  actorName: a.actorName || 'System',
-                  timestamp: a.timestamp,
-                })),
-                ...posting.publicationHistory.map((h) => ({
-                  id: h.id,
-                  action: h.action,
-                  actorName: h.actorName,
-                  timestamp: h.timestamp,
-                })),
-              ]
-                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-                .map((h) => (
+              {(() => {
+                const allHistory = [
+                  ...vacancy.statusHistory.map((h) => ({
+                    id: h.id,
+                    action: h.fromStatus
+                      ? `Status: ${h.fromStatus.replace('_', ' ')} → ${h.toStatus.replace('_', ' ')}${h.notes ? ` — ${h.notes}` : ''}`
+                      : `Status set to ${h.toStatus.replace('_', ' ')}`,
+                    actorName: h.actorName || 'System',
+                    timestamp: h.timestamp,
+                  })),
+                  ...vacancy.activities.map((a) => ({
+                    id: a.id,
+                    action: a.action,
+                    actorName: a.actorName || 'System',
+                    timestamp: a.timestamp,
+                  })),
+                  ...(posting.publicationHistory || []).map((h) => ({
+                    id: h.id,
+                    action: h.action,
+                    actorName: h.actorName || 'System',
+                    timestamp: h.timestamp,
+                  })),
+                ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+                if (allHistory.length === 0) {
+                  return (
+                    <div className="py-4 text-center text-slate-400 text-xs">
+                      No activity history available
+                    </div>
+                  );
+                }
+
+                return allHistory.map((h) => (
                   <div
                     key={h.id}
                     className="flex gap-4 items-start pt-3 first:pt-0"
@@ -578,20 +734,105 @@ export const JobPostingControl: React.FC<JobPostingControlProps> = ({
                       </p>
                     </div>
                   </div>
-                ))}
+                ));
+              })()}
             </div>
           </div>
         </div>
 
         {/* Right Side Sidebar Control Column */}
         <div className="lg:col-span-4 space-y-6">
-          {/* Scheduling Parameter Card */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-3">
-            <h4 className="text-xs font-bold tracking-wider text-slate-400 uppercase">
-              Application Deadline
+          {/* Public Apply Link card — editable */}
+          <div className="bg-white rounded-xl border border-emerald-200 p-5 shadow-sm space-y-3">
+            <h4 className="text-xs font-bold tracking-wider text-indigo-700 uppercase flex items-center gap-2">
+              <span className="material-symbols-outlined text-indigo-600">link</span>
+              Candidate Application Link
             </h4>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Share this link so candidates can log in and apply. Replace the URL with your deployed domain when ready.
+            </p>
             <input
-              type="date"
+              type="url"
+              value={customApplyLink}
+              onChange={(e) => setCustomApplyLink(e.target.value)}
+              className="w-full px-3 py-2 text-[11px] font-mono text-slate-800 border border-emerald-200 rounded-lg bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+              placeholder={channelApplyLink || 'https://yourcompany.com/login?apply=...'}
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => { if (applyLink) navigator.clipboard.writeText(applyLink); }}
+                disabled={!applyLink}
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-emerald-200 bg-indigo-400 hover:bg-indigo-600 text-emerald-700 text-[11px] font-bold rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <span className="material-symbols-outlined text-[14px]">content_copy</span>
+                Copy Link
+              </button>
+              <button
+                type="button"
+                onClick={() => setCustomApplyLink('')}
+                className="px-3 py-2 border border-slate-200 bg-red-400 hover:bg-red-600 text-slate-500 text-[11px] font-bold rounded-lg transition"
+                title="Clear link"
+              >
+                <span className="material-symbols-outlined text-[14px]">close</span>
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-400">
+              Configure the permanent link per channel in <strong>Configuration → Channels</strong> (Share Template field).
+            </p>
+          </div>
+
+          {/* Manual Distribution — PDF / TXT / Image */}
+          <div className="bg-white rounded-xl border border-indigo-200 p-5 shadow-sm space-y-3">
+            <h4 className="text-xs font-bold tracking-wider text-indigo-500 uppercase flex items-center gap-2">
+              <span className="material-symbols-outlined text-indigo-400">download</span>
+              Manual Distribution
+            </h4>
+            <p className="text-[11px] text-slate-700 leading-relaxed">
+              Download the job posting to share manually on any channel.
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadTxt}
+                className="flex flex-col items-center justify-center gap-1.5 px-3 py-3 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-bold rounded-xl transition shadow-sm"
+              >
+                <span className="material-symbols-outlined text-base text-slate-500">description</span>
+                TXT
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadPdf}
+                className="flex flex-col items-center justify-center gap-1.5 px-3 py-3 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-bold rounded-xl transition shadow-sm"
+              >
+                <span className="material-symbols-outlined text-base text-indigo-600">picture_as_pdf</span>
+                PDF
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadImage}
+                className="flex flex-col items-center justify-center gap-1.5 px-3 py-3 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-bold rounded-xl transition shadow-sm"
+              >
+                <span className="material-symbols-outlined text-base text-slate-500">image</span>
+                Image
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-600 italic">
+              PDF/Image opens a print preview. Use Ctrl+P or browser print to save.
+            </p>
+          </div>
+
+          {/* Application Deadline — styled same as VacancyManagementDetail */}
+          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl p-4 shadow-md">
+            <label
+              htmlFor="jobPostingDeadline"
+              className="font-bold uppercase tracking-wider text-[11px] text-indigo-700 mb-2 block"
+            >
+              Application Deadline
+            </label>
+            <input
+              id="jobPostingDeadline"
+              // type="date"
               value={
                 posting.closingDate?.slice(0, 10) ||
                 vacancy.closingDate?.slice(0, 10) ||
@@ -599,22 +840,14 @@ export const JobPostingControl: React.FC<JobPostingControlProps> = ({
               }
               disabled={!canPublish}
               onChange={(e) => onUpdateClosingDate(e.target.value)}
-              className="w-full p-2.5 border border-slate-200 rounded-lg text-sm bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition shadow-sm disabled:bg-slate-50 disabled:text-slate-400"
+              className="w-full p-3 border-2 border-indigo-300 rounded-lg bg-white text-slate-800 font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600 text-sm shadow-sm disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
             />
             {daysLeft !== null && (
-              <p className="text-xs text-amber-800 font-semibold bg-amber-50 p-2 rounded-lg border border-amber-200 flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-sm">
-                  hourglass_empty
-                </span>
-                {daysLeft} calendar days until auto-expiration
+              <p className="text-xs text-amber-800 font-semibold bg-amber-50 p-2 rounded-lg border border-amber-200 flex items-center gap-1.5 mt-2">
+                <span className="material-symbols-outlined text-sm">hourglass_empty</span>
+                {daysLeft} days remaining until auto-expiration
               </p>
             )}
-            <p className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
-              <span className="material-symbols-outlined text-sm text-slate-400">
-                info
-              </span>
-              Cloud-system enforces structural closeout at 23:59 on deadline.
-            </p>
           </div>
 
           {/* Action Trigger Panels */}
@@ -740,41 +973,7 @@ export const JobPostingControl: React.FC<JobPostingControlProps> = ({
             </div>
           )}
 
-          {/* Analytics Overview Grid Widget */}
-          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
-            <h4 className="text-xs font-bold tracking-wider text-slate-400 uppercase">
-              Live Pipeline Metrics
-            </h4>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="text-center p-4 bg-slate-50 border border-slate-100 rounded-xl shadow-sm">
-                <p className="text-3xl font-black tracking-tight text-slate-900 font-mono">
-                  {posting.views.toLocaleString()}
-                </p>
-                <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400 mt-1">
-                  Traffic Views
-                </p>
-              </div>
-              <div className="text-center p-4 bg-slate-50 border border-slate-100 rounded-xl shadow-sm">
-                <p className="text-3xl font-black tracking-tight text-slate-900 font-mono">
-                  {posting.applicationsCount}
-                </p>
-                <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400 mt-1">
-                  Submissions
-                </p>
-              </div>
-            </div>
-            <div className="pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
-              <span className="text-slate-500 font-medium">
-                Conversion Performance Ratio
-              </span>
-              <strong className="text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-100 font-mono text-sm">
-                {conversionRate(posting)}%
-              </strong>
-            </div>
-            <p className="text-[10px] text-slate-400 text-center italic">
-              Network metrics processed asynchronously via sample model buffers
-            </p>
-          </div>
+          
         </div>
       </div>
 

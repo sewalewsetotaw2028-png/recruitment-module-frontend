@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Central API route paths — keep in sync with recruitment-module-backend/src/app.ts mounts */
 const API_V1 = '/api/v1';
 
@@ -50,6 +49,8 @@ export const API_ROUTES = {
     documents: `${API_V1}/candidates/documents`,
 
     document: (documentId: string) => `${API_V1}/candidates/documents?documentId=${encodeURIComponent(documentId)}`,
+
+    viewDocument: (url: string) => `${API_V1}/candidates/documents/view?url=${encodeURIComponent(url)}`,
 
     experience: `${API_V1}/candidates/experience`,
 
@@ -197,6 +198,8 @@ export const API_ROUTES = {
 
     cancel: (interviewId: string) => `${API_V1}/interviews/${interviewId}/cancel`,
 
+    complete: (interviewId: string) => `${API_V1}/interviews/${interviewId}/complete`,
+
     evaluations: (interviewId: string) =>
 
       `${API_V1}/interviews/${interviewId}/evaluations`,
@@ -233,11 +236,8 @@ export const API_ROUTES = {
 
     publish: (id: string) => `${API_V1}/job-postings/${id}/publish`,
 
+
     withdraw: (vacancyId: string) => `${API_V1}/job-postings/${vacancyId}/withdraw`,
-
-
-    withdraw: (id: string) => `${API_V1}/job-postings/${id}/withdraw`,
-
 
     delete: (id: string) => `${API_V1}/job-postings/${id}`,
 

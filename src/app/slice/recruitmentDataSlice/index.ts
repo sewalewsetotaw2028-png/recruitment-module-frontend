@@ -1,20 +1,4 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
-import {
-  mockApplications,
-  mockCandidates,
-  mockInterviews,
-  mockJobOffers,
-  mockJobPostings,
-  mockJobTemplates,
-  mockOfferTemplates,
-  mockQuestionBank,
-  mockRecruitmentRequests,
-  mockScreeningRules,
-  mockTalentPool,
-  mockUsers,
-  mockVacancies,
-  mockWorkforcePlans,
-} from '@/data/dummyData';
 import type { RecruitmentDataState } from './types';
 
 const DEFAULT_DEPARTMENTS = [
@@ -26,23 +10,22 @@ const DEFAULT_DEPARTMENTS = [
 
 export const initialState: RecruitmentDataState = {
   departments: DEFAULT_DEPARTMENTS,
-  candidates: mockCandidates,
+  candidates: [],
   vacancies: [],
   applications: [],
   recruitmentRequests: [],
   workforcePlans: [],
   interviews: [],
-  questionBank: mockQuestionBank,
-  screeningRules: mockScreeningRules,
-  users: mockUsers,
-  jobTemplates: mockJobTemplates,
-  jobPostings: mockJobPostings,
-  jobOffers: mockJobOffers,
-  offerTemplates: mockOfferTemplates,
-  talentPool: mockTalentPool,
+  questionBank: [],
+  screeningRules: [],
+  users: [],
+  jobTemplates: [],
+  jobPostings: [],
+  jobOffers: [],
+  offerTemplates: [],
+  talentPool: [],
   hrisIntegrationAvailable: true,
   hrisManualMode: false,
-  usingMockData: false,
   savedJobIds: [],
 };
 
@@ -55,17 +38,6 @@ const slice = createSlice({
       action: PayloadAction<Partial<RecruitmentDataState>>,
     ) {
       Object.assign(state, action.payload);
-    },
-    applyMockDataset(state) {
-      state.vacancies = mockVacancies;
-      state.applications = mockApplications;
-      state.recruitmentRequests = mockRecruitmentRequests;
-      state.workforcePlans = mockWorkforcePlans;
-      state.interviews = mockInterviews;
-      state.usingMockData = true;
-    },
-    setUsingMockData(state, action: PayloadAction<boolean>) {
-      state.usingMockData = action.payload;
     },
     resetRecruitmentData() {
       return initialState;

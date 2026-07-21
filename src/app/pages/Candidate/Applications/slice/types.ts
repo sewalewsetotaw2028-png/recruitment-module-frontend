@@ -2,11 +2,17 @@ export interface CandidateApplication {
 
   id: string;
 
+  vacancyId: string;
+
   vacancyTitle: string;
 
   currentStage: string;
 
   applicationStatus: string;
+
+  location?: string;
+
+  appliedAt?: string;
 
 }
 

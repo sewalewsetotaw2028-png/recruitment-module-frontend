@@ -1,10 +1,7 @@
 import { call, put, takeLatest } from 'redux-saga/effects';
 import makeCall from '@/API';
 import { API_ROUTES } from '@/API/apiRoutes';
-import { authActions } from '@/slice/authSlice';
 import { getErrorMessage } from '@/utils/apiMappers';
-import { loginWithFallback } from '../../shared/loginApi';
-import { parseLoginResponse } from '../../shared/sessionBridge';
 import { authenticationSignupActions } from './index';
 
 function* submitSignupSaga(
@@ -33,28 +30,9 @@ function* submitSignupSaga(
       isSecureRoute: false,
     });
 
-    const loginResponse = (yield call(loginWithFallback, {
-      email,
-      password,
-    })) as Awaited<ReturnType<typeof loginWithFallback>>;
-
-    const parsed = loginResponse ? parseLoginResponse(loginResponse) : null;
-    if (!parsed) {
-      yield put(
-        authenticationSignupActions.submitSignupFailure(
-          'Account created but sign-in failed. Try logging in.',
-        ),
-      );
-      return;
-    }
-
-    yield put(
-      authActions.loginSuccess({
-        token: parsed.token,
-        refreshToken: parsed.refreshToken,
-        user: parsed.user,
-      }),
-    );
+    // Registration successful — show signup success with the email so the
+    // UI can redirect to the email verification pending page.
+    // The user is NOT auto-logged in; they must verify their email first.
     yield put(authenticationSignupActions.submitSignupSuccess());
   } catch (error) {
     yield put(

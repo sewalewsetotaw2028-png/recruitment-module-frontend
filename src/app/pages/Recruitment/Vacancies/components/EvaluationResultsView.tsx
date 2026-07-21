@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/components/common/Toast';
 import {
@@ -111,6 +111,30 @@ export const EvaluationResultsView: React.FC<EvaluationResultsViewProps> = ({
     return sortDirection === 'asc' ? comparison : -comparison;
   });
 
+  // Calculate total weighted score for each candidate to match the expanded view
+  const candidateTotalScores = useMemo(() => {
+    const scores: Record<string, number> = {};
+    Object.entries(candidateEvaluations).forEach(([appId, evaluations]) => {
+      scores[appId] = evaluations.reduce((sum, evaluation) => {
+        if (evaluation.scores_json && evaluation.scores_json.length > 0) {
+          return (
+            sum +
+            evaluation.scores_json.reduce(
+              (scoreSum, score: any) =>
+                scoreSum +
+                (typeof score.weighted_score === 'number'
+                  ? score.weighted_score
+                  : 0),
+              0,
+            )
+          );
+        }
+        return sum;
+      }, 0);
+    });
+    return scores;
+  }, [candidateEvaluations]);
+
   const loadCandidateEvaluations = useCallback(
     async (applicationId: string) => {
       if (candidateEvaluations[applicationId]) return; // Already loaded
@@ -219,15 +243,7 @@ export const EvaluationResultsView: React.FC<EvaluationResultsViewProps> = ({
               evaluated
             </p>
           </div>
-          <div className="text-right">
-            <p className="text-xs text-indigo-600 font-medium">
-              {
-                rankings.filter((r) => r.evaluation_count >= r.total_evaluators)
-                  .length
-              }{' '}
-              of {rankings.length} fully evaluated
-            </p>
-          </div>
+          
         </div>
       </div>
 
@@ -288,9 +304,7 @@ export const EvaluationResultsView: React.FC<EvaluationResultsViewProps> = ({
                   {sortField === 'aggregate_score' &&
                     (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
-                <th className="p-4">Category Breakdown</th>
                 <th className="p-4">Panel Recommendations</th>
-                <th className="p-4">Status</th>
                 <th className="p-4 w-36">Actions</th>
               </tr>
             </thead>
@@ -323,30 +337,16 @@ export const EvaluationResultsView: React.FC<EvaluationResultsViewProps> = ({
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <span className="font-mono font-bold text-slate-900">
-                          {candidate.aggregate_score.toFixed(2)}
+                          {candidateTotalScores[candidate.application_id]?.toFixed(2) || candidate.aggregate_score.toFixed(2)}
                         </span>
                         <div className="w-24 h-2 bg-slate-200 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-indigo-600 transition-all"
                             style={{
-                              width: `${Math.min(candidate.aggregate_score, 100)}%`,
+                              width: `${Math.min(candidateTotalScores[candidate.application_id] || candidate.aggregate_score, 100)}%`,
                             }}
                           />
                         </div>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <div className="flex flex-wrap gap-1">
-                        {Object.entries(candidate.category_breakdown).map(
-                          ([category, score]) => (
-                            <span
-                              key={category}
-                              className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] font-medium"
-                            >
-                              {category}: {(score as number).toFixed(1)}
-                            </span>
-                          ),
-                        )}
                       </div>
                     </td>
                     <td className="p-4">
@@ -362,19 +362,6 @@ export const EvaluationResultsView: React.FC<EvaluationResultsViewProps> = ({
                           ),
                         )}
                       </div>
-                    </td>
-                    <td className="p-4">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                          candidate.application_status === 'SELECTED'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : candidate.application_status === 'REJECTED'
-                              ? 'bg-red-50 text-red-700 border border-red-200'
-                              : 'bg-slate-100 text-slate-700 border border-slate-200'
-                        }`}
-                      >
-                        {candidate.application_status.replace('_', ' ')}
-                      </span>
                     </td>
                     <td className="p-4">
                       <div className="flex gap-2 items-center">
@@ -465,12 +452,7 @@ export const EvaluationResultsView: React.FC<EvaluationResultsViewProps> = ({
                                       </p>
                                     </div>
                                     <div className="text-right">
-                                      <p className="text-lg font-bold text-indigo-600 font-mono">
-                                        {typeof evaluation.overall_score ===
-                                        'number'
-                                          ? evaluation.overall_score.toFixed(2)
-                                          : '-'}
-                                      </p>
+                                      
                                       <span
                                         className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
                                           evaluation.recommendation ===
@@ -541,9 +523,7 @@ export const EvaluationResultsView: React.FC<EvaluationResultsViewProps> = ({
                                                     <td className="p-2 text-right font-mono text-indigo-600">
                                                       {typeof score.weighted_score ===
                                                       'number'
-                                                        ? score.weighted_score.toFixed(
-                                                            2,
-                                                          )
+                                                        ? score.weighted_score.toFixed(2)
                                                         : '-'}
                                                     </td>
                                                   </tr>
@@ -573,36 +553,54 @@ export const EvaluationResultsView: React.FC<EvaluationResultsViewProps> = ({
                                 <p className="text-xs font-bold text-indigo-700 uppercase tracking-wide mb-3">
                                   Aggregate Summary
                                 </p>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                  {Object.entries(
-                                    candidate.category_breakdown,
-                                  ).map(([category, score]) => (
-                                    <div
-                                      key={category}
-                                      className="bg-white border border-indigo-100 rounded-lg p-3"
-                                    >
-                                      <p className="text-[10px] font-semibold text-indigo-600 uppercase tracking-wide">
-                                        {category}
+                                {candidateEvaluations[candidate.application_id] &&
+                                candidateEvaluations[candidate.application_id].length > 0 ? (
+                                  <div className="space-y-3">
+                                    <div className="bg-white border border-indigo-100 rounded-lg p-4">
+                                      <p className="text-[10px] font-semibold text-indigo-600 uppercase tracking-wide mb-2">
+                                        Total Weighted Score
                                       </p>
-                                      <p className="text-lg font-bold text-indigo-700 font-mono mt-1">
-                                        {(score as number).toFixed(2)}
+                                      <p className="text-2xl font-bold text-indigo-700 font-mono">
+                                        {candidateEvaluations[candidate.application_id]
+                                          .reduce((sum, evaluation) => {
+                                            if (evaluation.scores_json && evaluation.scores_json.length > 0) {
+                                              return (
+                                                sum +
+                                                evaluation.scores_json.reduce(
+                                                  (scoreSum, score: any) =>
+                                                    scoreSum +
+                                                    (typeof score.weighted_score === 'number'
+                                                      ? score.weighted_score
+                                                      : 0),
+                                                  0,
+                                                )
+                                              );
+                                            }
+                                            return sum;
+                                          }, 0)
+                                          .toFixed(2)}
                                       </p>
                                     </div>
-                                  ))}
-                                </div>
-                                <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-indigo-200">
-                                  {Object.entries(
-                                    candidate.panel_recommendations,
-                                  ).map(([rec, count]) => (
-                                    <span
-                                      key={rec}
-                                      className="px-2.5 py-1 bg-white text-indigo-700 border border-indigo-200 rounded text-xs font-semibold"
-                                    >
-                                      {count as number}×{' '}
-                                      {rec.replace(/_/g, ' ')}
-                                    </span>
-                                  ))}
-                                </div>
+                                    <div className="flex flex-wrap gap-2 pt-2">
+                                      {Object.entries(
+                                        candidate.panel_recommendations,
+                                      ).map(([rec, count]) => (
+                                        <span
+                                          key={rec}
+                                          className="px-2.5 py-1 bg-white text-indigo-700 border border-indigo-200 rounded text-xs font-semibold"
+                                        >
+                                          {count as number}×{' '}
+                                          {rec.replace(/_/g, ' ')}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-slate-500 text-center py-4">
+                                    No detailed evaluations available for this
+                                    candidate.
+                                  </p>
+                                )}
                               </div>
                             </div>
                           ) : (

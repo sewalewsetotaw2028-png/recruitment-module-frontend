@@ -117,6 +117,15 @@ export const ROUTE_ACCESS: Record<string, UserRole[]> = {
   ],
   [p('offers')]: ['recruiter', 'hr', 'hr_admin', 'ceo', 'candidate'],
   [p('roster')]: ['recruiter', 'hr', 'hr_admin'],
+  [p('notifications')]: [
+    'recruiter',
+    'hr',
+    'hr_admin',
+    'ceo',
+    'hiring_manager',
+    'interviewer',
+    'department_manager',
+  ],
   [p('settings')]: ['recruiter', 'hr', 'hr_admin'],
   [p('configuration')]: ['hr_admin', 'ceo'],
   [p('settings/configuration/roles-permissions')]: ['hr_admin', 'ceo'],
@@ -209,6 +218,7 @@ export const ROUTE_PERMISSION_ACCESS: Record<string, PermissionSlug[]> = {
   ],
   [p('settings/configuration/roles-permissions')]: [PERMISSIONS.CONFIG_MANAGE],
   [p('configuration')]: [PERMISSIONS.CONFIG_MANAGE],
+  // Notifications — no specific permission check, all internal roles can see their own notifications
   [p('settings')]: [PERMISSIONS.CONFIG_MANAGE],
   [p('vacancies/:vacancyId/evaluation')]: [
     PERMISSIONS.HIRING_MINUTE_READ,
@@ -370,6 +380,15 @@ const INTERNAL_NAV_ITEMS: NavItemDefinition[] = [
       PERMISSIONS.TALENT_ROSTER_MANAGE,
     ],
   },
+
+  // ── Notifications (visible to all internal users) ────────────────────────
+  {
+    id: 'notifications',
+    label: 'Notifications',
+    icon: 'notifications',
+    path: p('notifications'),
+    requiredPermissions: [], // All internal users can see their notifications
+  },
 ];
 
 // ─── getNavItemsForRole ───────────────────────────────────────────────────────
@@ -417,12 +436,6 @@ export function getNavItemsForRole(
         label: 'Notifications',
         icon: 'notifications',
         path: p('candidate-notifications'),
-      },
-      {
-        id: 'settings',
-        label: 'Settings',
-        icon: 'settings',
-        path: p('candidate-settings'),
       },
     ];
   }

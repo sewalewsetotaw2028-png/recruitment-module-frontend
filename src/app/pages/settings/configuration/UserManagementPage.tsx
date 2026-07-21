@@ -239,10 +239,7 @@ export const UserManagementPage: React.FC = () => {
         prev
           ? {
               ...prev,
-              roles: [
-                ...prev.roles,
-                { ...roleToAdd, created_at: '', updated_at: '' } as any,
-              ],
+              roles: [...prev.roles, roleToAdd as any],
             }
           : prev,
       );

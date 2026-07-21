@@ -209,6 +209,7 @@ export interface RecruitmentRequest {
   workforcePlanId?: string;
   workforcePlanItemId?: string;
   workforcePlanReference?: string;
+  positionName?: string;
   requestTitle: string;
   requestedBy: string;
   requestedByName: string;
@@ -244,6 +245,7 @@ export interface RecruitmentRequest {
   hrReviewedByName?: string;
   hrReviewDate?: string;
   hrReviewNotes?: string;
+  ceoApprovalNotes?: string;
   approvedBy?: string;
   approvedByName?: string;
   approvedAt?: string;
@@ -262,6 +264,7 @@ export interface RecruitmentRequest {
 export interface RecruitmentRequestFormPayload {
   requestTitle: string;
   hiringManagerId: string;
+  hiringManagerName?: string;
   departmentId: string;
   departmentName: string;
   jobTitle?: string;
@@ -350,6 +353,7 @@ export interface Vacancy {
   benefits?: string;
   employmentTerms?: string;
   experienceRequired?: string;
+  openingDate?: string;
   closingDate: string;
   hiringManagerId: string;
   hiringManagerName: string;
@@ -361,6 +365,8 @@ export interface Vacancy {
   lastModifiedByName?: string;
   publishedAt?: string;
   filledAt?: string;
+  approvedAt?: string;
+  closedAt?: string;
   createdAt: string;
   updatedAt: string;
   channels: string[];
@@ -569,6 +575,18 @@ export interface Application {
   vacancyTitle: string;
   applicationSource: string; // e.g. "LinkedIn", "Telegram", "Employee Referral"
   applicationStatus:
+    | 'SUBMITTED'
+    | 'UNDER_SCREENING'
+    | 'SHORTLISTED'
+    | 'INTERVIEW_SCHEDULED'
+    | 'INTERVIEW_COMPLETED'
+    | 'UNDER_EVALUATION'
+    | 'SELECTED'
+    | 'OFFER_ISSUED'
+    | 'OFFER_ACCEPTED'
+    | 'OFFER_DECLINED'
+    | 'REJECTED'
+    | 'MOVED_TO_TALENT_ROSTER'
     | 'submitted'
     | 'screening'
     | 'shortlisted'
@@ -609,7 +627,13 @@ export interface Interview {
   scheduledEnd: string;
   location?: string;
   meetingLink?: string;
-  interviewStatus: 'scheduled' | 'rescheduled' | 'completed' | 'evaluation_pending' | 'finalized' | 'cancelled';
+  interviewStatus:
+    | 'scheduled'
+    | 'rescheduled'
+    | 'completed'
+    | 'evaluation_pending'
+    | 'finalized'
+    | 'cancelled';
   panelMembers: { userId: string; userName: string; roleSlug: string }[];
   questions?: string[];
   evaluations?: InterviewEvaluation[];
@@ -689,10 +713,11 @@ export interface JobOffer {
   departmentName: string;
   salary: number;
   salaryCurrency: string;
-  employmentType: 'full_time' | 'part_time' | 'contractor' | 'internship';
+  employmentType: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERNSHIP' | 'TEMPORARY' | 'CONSULTANT';
   startDate: string;
   benefits?: string;
   expirationDate: string;
+  allowances?: Record<string, number> | string;
   status: OfferStatus;
   templateId?: string;
   hrisSyncStatus: HrisSyncStatus;
@@ -718,7 +743,7 @@ export interface OfferTemplate {
   organizationId: string;
   name: string;
   defaultBenefits: string;
-  employmentType: 'full_time' | 'part_time' | 'contractor' | 'internship';
+  employmentType: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERNSHIP' | 'TEMPORARY' | 'CONSULTANT';
   salaryBandMin?: number;
   salaryBandMax?: number;
 }
@@ -726,11 +751,12 @@ export interface OfferTemplate {
 export interface OfferFormPayload {
   applicationId: string;
   salary: number;
-  employmentType: 'full_time' | 'part_time' | 'contractor' | 'internship';
+  employmentType: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERNSHIP' | 'TEMPORARY' | 'CONSULTANT';
   startDate: string;
   benefits?: string;
   expirationDate: string;
   templateId?: string;
+  allowances?: Record<string, number> | string;
 }
 
 /** Talent Roster / Pool (FR-50+) */
@@ -769,6 +795,9 @@ export interface TalentPoolEntry {
   addedAt: string;
   addedByName: string;
   history: TalentHistoryEntry[];
+  status?: 'ACTIVE' | 'PLACED' | 'INACTIVE' | 'WITHDRAWN';
+  sourceStage?: string;
+  sourcedFromVacancyIds?: string[];
 }
 
 // Pagination & API types

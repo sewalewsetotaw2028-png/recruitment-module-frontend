@@ -78,12 +78,13 @@ export function getLifecycleProgress(status: VacancyStatus): number {
 export function getHiringFunnel(applications: Application[], vacancyId: string) {
   const apps = applications.filter((a) => a.vacancyId === vacancyId);
   const normalize = (value: string) => String(value ?? '').toLowerCase();
+  
   return {
     total: apps.length,
     screening: apps.filter((a) => ['submitted', 'screening'].includes(normalize(a.applicationStatus))).length,
     shortlisted: apps.filter((a) => normalize(a.applicationStatus) === 'shortlisted').length,
     interviewed: apps.filter((a) =>
-      ['interview', 'offered', 'hired'].includes(normalize(a.applicationStatus))
+      ['interview', 'interview_scheduled', 'under_evaluation', 'offered', 'hired'].includes(normalize(a.applicationStatus))
     ).length,
     offered: apps.filter((a) => ['offered', 'hired'].includes(normalize(a.applicationStatus))).length,
     hired: apps.filter((a) => normalize(a.applicationStatus) === 'hired').length,
@@ -92,6 +93,8 @@ export function getHiringFunnel(applications: Application[], vacancyId: string) 
 
 export function getVacancyInterviews(interviews: Interview[], applications: Application[], vacancyId: string) {
   const appIds = new Set(applications.filter((a) => a.vacancyId === vacancyId).map((a) => a.id));
+  
+  // Match interviews by applicationId (now properly populated by backend)
   return interviews.filter((i) => appIds.has(i.applicationId));
 }
 
@@ -108,12 +111,12 @@ export function averageTimeToFillDays(vacancies: Vacancy[], jobOffers: JobOffer[
   const filled = vacancies.filter((v) => v.filledAt || String(v.vacancyStatus ?? '').toLowerCase() === 'closed');
   if (filled.length === 0) return 0;
   const total = filled.reduce((s, v) => {
-    const approvalDate = (v as any).approvedAt || v.createdAt;
+    const approvalDate = v.approvedAt || v.createdAt;
     // Find the accepted offer for this vacancy
     const vacancyOffer = jobOffers.find(o => 
       o.vacancyId === v.id && o.status === 'accepted' && o.acceptedAt
     );
-    const offerAcceptanceDate = vacancyOffer?.acceptedAt || v.filledAt || (v as any).closedAt;
+    const offerAcceptanceDate = vacancyOffer?.acceptedAt || v.filledAt || v.closedAt;
     if (!approvalDate || !offerAcceptanceDate) return s;
     const days = Math.floor((new Date(offerAcceptanceDate).getTime() - new Date(approvalDate).getTime()) / (1000 * 60 * 60 * 24));
     return s + Math.max(0, days);

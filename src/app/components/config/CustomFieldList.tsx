@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useMemo, useState } from 'react';
 import type { CustomField } from '@/hooks/useCustomFields';
 import {
@@ -60,12 +59,12 @@ export const CustomFieldList: React.FC<CustomFieldListProps> = ({
   }, [fields, searchQuery]);
 
   const groupedFields = useMemo(() => {
-    const grouped = ENTITY_ORDER.map((entityType) => ({
+    const grouped: { entityType: string; items: CustomField[] }[] = ENTITY_ORDER.map((entityType) => ({
       entityType,
       items: filteredFields.filter((field) => field.entity_type === entityType),
     })).filter((group) => group.items.length > 0);
 
-    const knownTypes = new Set(ENTITY_ORDER);
+    const knownTypes = new Set<string>(ENTITY_ORDER);
     const extras = filteredFields.filter(
       (field) => !knownTypes.has(field.entity_type as (typeof ENTITY_ORDER)[number]),
     );

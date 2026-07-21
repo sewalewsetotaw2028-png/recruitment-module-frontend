@@ -12,6 +12,9 @@ interface Offer {
   start_date: string;
   expiry_date: string;
   status: string;
+  employment_type?: string;
+  template_id?: string;
+  allowances?: Record<string, number> | string;
   offer_notes?: string;
   declined_reason?: string;
   application?: {
@@ -60,7 +63,9 @@ export const CandidateOffersPage: React.FC = () => {
         isSecureRoute: true,
       });
       // Extract array from response payload
-      const list = Array.isArray(res.data) ? res.data : ((res.data as any)?.data || []);
+      const list = Array.isArray(res.data)
+        ? res.data
+        : (res.data as any)?.data || [];
       setOffers(list);
     } catch (err: any) {
       setError(err?.message || 'Failed to load offers');
@@ -160,7 +165,8 @@ export const CandidateOffersPage: React.FC = () => {
             offers.map((offer) => {
               const isPending = offer.status.toUpperCase() === 'SENT';
               const isExpired = new Date() > new Date(offer.expiry_date);
-              const statusDisplay = isPending && isExpired ? 'EXPIRED' : offer.status;
+              const statusDisplay =
+                isPending && isExpired ? 'EXPIRED' : offer.status;
 
               return (
                 <div
@@ -174,8 +180,9 @@ export const CandidateOffersPage: React.FC = () => {
                         {offer.application?.vacancy?.title || 'Job Offer'}
                       </h3>
                       <p className="text-slate-400 text-xs font-medium mt-0.5">
-                        {offer.application?.vacancy?.department?.name || 'Department'} •{' '}
-                        {offer.application?.vacancy?.location || 'Location'}
+                        {offer.application?.vacancy?.department?.name ||
+                          'Department'}{' '}
+                        • {offer.application?.vacancy?.location || 'Location'}
                       </p>
                     </div>
                     <span
@@ -201,9 +208,12 @@ export const CandidateOffersPage: React.FC = () => {
                         Proposed Start Date
                       </span>
                       <p className="font-medium text-slate-700 mt-1">
-                        {new Date(offer.start_date).toLocaleDateString(undefined, {
-                          dateStyle: 'medium',
-                        })}
+                        {new Date(offer.start_date).toLocaleDateString(
+                          undefined,
+                          {
+                            dateStyle: 'medium',
+                          },
+                        )}
                       </p>
                     </div>
                     <div>
@@ -211,17 +221,24 @@ export const CandidateOffersPage: React.FC = () => {
                         Offer Expiry Date
                       </span>
                       <p className="font-medium text-slate-700 mt-1">
-                        {new Date(offer.expiry_date).toLocaleDateString(undefined, {
-                          dateStyle: 'medium',
-                        })}
+                        {new Date(offer.expiry_date).toLocaleDateString(
+                          undefined,
+                          {
+                            dateStyle: 'medium',
+                          },
+                        )}
                       </p>
                     </div>
                   </div>
 
                   {offer.offer_notes && (
                     <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 text-xs">
-                      <span className="font-bold text-slate-600 block mb-1">Notes from the hiring team:</span>
-                      <p className="text-slate-500 leading-relaxed">{offer.offer_notes}</p>
+                      <span className="font-bold text-slate-600 block mb-1">
+                        Notes from the hiring team:
+                      </span>
+                      <p className="text-slate-500 leading-relaxed">
+                        {offer.offer_notes}
+                      </p>
                     </div>
                   )}
 
@@ -261,12 +278,17 @@ export const CandidateOffersPage: React.FC = () => {
                     </div>
                   )}
 
-                  {offer.status.toUpperCase() === 'DECLINED' && offer.declined_reason && (
-                    <div className="bg-rose-50/30 rounded-xl p-3 border border-rose-100/50 text-xs">
-                      <span className="font-bold text-rose-800 block mb-1">Reason for declining:</span>
-                      <p className="text-rose-700/80">{offer.declined_reason}</p>
-                    </div>
-                  )}
+                  {offer.status.toUpperCase() === 'DECLINED' &&
+                    offer.declined_reason && (
+                      <div className="bg-rose-50/30 rounded-xl p-3 border border-rose-100/50 text-xs">
+                        <span className="font-bold text-rose-800 block mb-1">
+                          Reason for declining:
+                        </span>
+                        <p className="text-rose-700/80">
+                          {offer.declined_reason}
+                        </p>
+                      </div>
+                    )}
                 </div>
               );
             })
@@ -279,9 +301,12 @@ export const CandidateOffersPage: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fadeIn">
           <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
             <div>
-              <h3 className="font-bold text-slate-900 text-base tracking-tight">Decline Offer</h3>
+              <h3 className="font-bold text-slate-900 text-base tracking-tight">
+                Decline Offer
+              </h3>
               <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
-                Please provide a brief reason for declining this offer. Your feedback is highly appreciated.
+                Please provide a brief reason for declining this offer. Your
+                feedback is highly appreciated.
               </p>
             </div>
             <textarea
@@ -322,21 +347,29 @@ export const CandidateOffersPage: React.FC = () => {
           <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-emerald-600 text-xl">handshake</span>
+                <span className="material-symbols-outlined text-emerald-600 text-xl">
+                  handshake
+                </span>
               </div>
               <div>
-                <h3 className="font-bold text-slate-900 text-base tracking-tight">Accept Job Offer</h3>
+                <h3 className="font-bold text-slate-900 text-base tracking-tight">
+                  Accept Job Offer
+                </h3>
                 <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  By accepting this offer, you officially confirm your intent to join the company.
-                  A formal employment contract will be generated and sent to you shortly.
+                  By accepting this offer, you officially confirm your intent to
+                  join the company. A formal employment contract will be
+                  generated and sent to you shortly.
                 </p>
               </div>
             </div>
 
             <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 flex items-start gap-2.5">
-              <span className="material-symbols-outlined text-amber-500 text-lg shrink-0">info</span>
+              <span className="material-symbols-outlined text-amber-500 text-lg shrink-0">
+                info
+              </span>
               <p className="text-xs text-amber-700 leading-relaxed">
-                This action is binding. You will not be able to undo it once confirmed.
+                This action is binding. You will not be able to undo it once
+                confirmed.
               </p>
             </div>
 
@@ -371,143 +404,275 @@ export const CandidateOffersPage: React.FC = () => {
         isOpen={!!selectedOffer}
         onClose={() => setSelectedOffer(null)}
         title="Job Offer Details"
-        size="lg"
+        size="xl"
       >
-        {selectedOffer && (() => {
-          const isPending = selectedOffer.status.toUpperCase() === 'SENT';
-          const isExpired = new Date() > new Date(selectedOffer.expiry_date);
-          const statusDisplay = isPending && isExpired ? 'EXPIRED' : selectedOffer.status;
-          return (
-            <div className="space-y-6 text-slate-700 text-xs animate-fadeIn">
-              {/* Header info */}
-              <div className="border-b border-slate-100 pb-4">
-                <h3 className="text-lg font-bold text-slate-900">
-                  {selectedOffer.application?.vacancy?.title || 'Job Offer'}
-                </h3>
-                <p className="text-slate-400 text-xs font-medium mt-0.5">
-                  {selectedOffer.application?.vacancy?.department?.name || 'Department'} • {selectedOffer.application?.vacancy?.location || 'Location'}
-                </p>
-              </div>
+        {selectedOffer &&
+          (() => {
+            const isPending = selectedOffer.status.toUpperCase() === 'SENT';
+            const isExpired = new Date() > new Date(selectedOffer.expiry_date);
+            const statusDisplay =
+              isPending && isExpired ? 'EXPIRED' : selectedOffer.status;
+            const companyName = 'Adiu Communication Service PLC';
+            const positionTitle =
+              selectedOffer.application?.vacancy?.title || 'Job Offer';
+            const candidateName = 'Candidate'; // Would come from user profile
 
-              {/* Status Badge & Countdown Banner */}
-              <div className="flex justify-between items-center bg-slate-50 border border-slate-100 p-3.5 rounded-xl">
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-slate-400 font-bold uppercase tracking-wider block font-mono text-[9px]">
-                    Status
-                  </span>
-                  <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-bold text-[9px] border uppercase tracking-wider font-mono w-max ${getStatusBadge(
-                      statusDisplay,
-                    )}`}
-                  >
-                    {statusDisplay.toUpperCase()}
-                  </span>
-                </div>
-                {isPending && !isExpired && (
-                  <div className="text-right">
+            const allowances =
+              typeof selectedOffer.allowances === 'string'
+                ? {}
+                : (selectedOffer.allowances as Record<string, number>) || {};
+
+            return (
+              <div className="space-y-6 text-slate-700 text-xs animate-fadeIn">
+                {/* Status Badge & Countdown Banner */}
+                <div className="flex justify-between items-center bg-slate-50 border border-slate-100 p-3.5 rounded-xl">
+                  <div className="flex flex-col gap-0.5">
                     <span className="text-slate-400 font-bold uppercase tracking-wider block font-mono text-[9px]">
-                      Time Remaining
+                      Status
                     </span>
-                    <span className="font-bold text-amber-600 font-mono text-xs">
-                      {getRemainingTime(selectedOffer.expiry_date)}
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-bold text-[9px] border uppercase tracking-wider font-mono w-max ${getStatusBadge(
+                        statusDisplay,
+                      )}`}
+                    >
+                      {statusDisplay.toUpperCase()}
                     </span>
+                  </div>
+                  {isPending && !isExpired && (
+                    <div className="text-right">
+                      <span className="text-slate-400 font-bold uppercase tracking-wider block font-mono text-[9px]">
+                        Time Remaining
+                      </span>
+                      <span className="font-bold text-amber-600 font-mono text-xs">
+                        {getRemainingTime(selectedOffer.expiry_date)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Offer Letter Document */}
+                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                  {/* Letter Header */}
+                  <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 text-center">
+                    <h2 className="text-xl font-bold tracking-tight">
+                      {companyName}
+                    </h2>
+                    <p className="text-indigo-100 text-xs mt-1">
+                      Official Job Offer Letter
+                    </p>
+                  </div>
+
+                  {/* Letter Content */}
+                  <div className="p-8 space-y-6">
+                    <div>
+                      <p className="text-slate-600 leading-relaxed">
+                        Dear <strong>{candidateName}</strong>,
+                      </p>
+                      <p className="text-slate-600 leading-relaxed mt-4">
+                        We are delighted to offer you the position of{' '}
+                        <strong>{positionTitle}</strong> at{' '}
+                        <strong>{companyName}</strong>. After careful
+                        consideration of your qualifications and experience, we
+                        believe you will be a valuable addition to our team.
+                      </p>
+                    </div>
+
+                    {/* Offer Details Table */}
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl overflow-hidden">
+                      <div className="bg-slate-100 px-4 py-3 border-b border-slate-200">
+                        <h3 className="font-bold text-slate-900 text-sm">
+                          Offer Details
+                        </h3>
+                      </div>
+                      <div className="divide-y divide-slate-200">
+                        <div className="flex justify-between px-4 py-3">
+                          <span className="text-slate-600 font-medium">
+                            Position
+                          </span>
+                          <span className="font-semibold text-slate-900">
+                            {positionTitle}
+                          </span>
+                        </div>
+                        <div className="flex justify-between px-4 py-3">
+                          <span className="text-slate-600 font-medium">
+                            Department
+                          </span>
+                          <span className="font-semibold text-slate-900">
+                            {selectedOffer.application?.vacancy?.department
+                              ?.name || 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between px-4 py-3">
+                          <span className="text-slate-600 font-medium">
+                            Location
+                          </span>
+                          <span className="font-semibold text-slate-900">
+                            {selectedOffer.application?.vacancy?.location ||
+                              'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between px-4 py-3">
+                          <span className="text-slate-600 font-medium">
+                            Annual Salary
+                          </span>
+                          <span className="font-bold text-slate-900">
+                            ETB {selectedOffer.salary.toLocaleString()}
+                          </span>
+                        </div>
+                        {selectedOffer.employment_type && (
+                          <div className="flex justify-between px-4 py-3">
+                            <span className="text-slate-600 font-medium">
+                              Employment Type
+                            </span>
+                            <span className="font-semibold text-slate-900">
+                              {selectedOffer.employment_type
+                                .toLowerCase()
+                                .replace(/_/g, ' ')}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex justify-between px-4 py-3">
+                          <span className="text-slate-600 font-medium">
+                            Start Date
+                          </span>
+                          <span className="font-semibold text-slate-900">
+                            {new Date(selectedOffer.start_date).toLocaleDateString(
+                              undefined,
+                              { dateStyle: 'long' },
+                            )}
+                          </span>
+                        </div>
+                        <div className="flex justify-between px-4 py-3">
+                          <span className="text-slate-600 font-medium">
+                            Offer Valid Until
+                          </span>
+                          <span className="font-semibold text-slate-900">
+                            {new Date(selectedOffer.expiry_date).toLocaleDateString(
+                              undefined,
+                              { dateStyle: 'long' },
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Allowances Section */}
+                    {Object.keys(allowances).length > 0 && (
+                      <div>
+                        <h3 className="font-bold text-slate-900 text-sm mb-3">
+                          Allowances & Benefits
+                        </h3>
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl overflow-hidden">
+                          <div className="divide-y divide-slate-200">
+                            {Object.entries(allowances).map(([key, value]) => (
+                              <div
+                                key={key}
+                                className="flex justify-between px-4 py-3"
+                              >
+                                <span className="text-slate-600 font-medium">
+                                  {key}
+                                </span>
+                                <span className="font-semibold text-slate-900">
+                                  ETB {Number(value).toLocaleString()}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Additional Notes */}
+                    {selectedOffer.offer_notes && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                        <h3 className="font-bold text-amber-900 text-sm mb-2">
+                          Additional Notes
+                        </h3>
+                        <p className="text-amber-800 leading-relaxed">
+                          {selectedOffer.offer_notes}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Next Steps */}
+                    <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
+                      <h3 className="font-bold text-indigo-900 text-sm mb-2">
+                        Next Steps
+                      </h3>
+                      <p className="text-indigo-800 leading-relaxed">
+                        Please review this offer carefully and accept or decline
+                        it through this portal by the expiry date. Upon
+                        acceptance, a formal employment contract will be
+                        generated and sent to you for signature.
+                      </p>
+                    </div>
+
+                    {/* Closing */}
+                    <div className="text-slate-600 leading-relaxed">
+                      <p className="mb-2">
+                        If you have any questions about this offer, please
+                        don't hesitate to contact our HR team.
+                      </p>
+                      <p className="mb-2">
+                        We look forward to welcoming you to {companyName}!
+                      </p>
+                      <p className="mt-4">
+                        Best regards,<br />
+                        <strong>HR Team</strong><br />
+                        {companyName}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Decline Reason (if declined) */}
+                {selectedOffer.status.toUpperCase() === 'DECLINED' &&
+                  selectedOffer.declined_reason && (
+                    <div className="bg-rose-50/40 border border-rose-100/50 p-3.5 rounded-xl">
+                      <span className="font-bold text-rose-800 block mb-1">
+                        Reason for declining:
+                      </span>
+                      <p className="text-rose-700/80">
+                        {selectedOffer.declined_reason}
+                      </p>
+                    </div>
+                  )}
+
+                {/* Action Buttons */}
+                {isPending && !isExpired && (
+                  <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedOfferId(selectedOffer.id);
+                        setShowDeclineModal(true);
+                        setSelectedOffer(null);
+                      }}
+                      disabled={submitting}
+                      className="px-4 py-2 border border-slate-200 hover:border-rose-200 text-slate-600 hover:text-rose-600 hover:bg-rose-50/50 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      Decline Offer
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAcceptTargetId(selectedOffer.id);
+                        setSelectedOffer(null);
+                        setShowAcceptModal(true);
+                      }}
+                      disabled={submitting}
+                      className="px-4 py-2 !text-white rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                      style={{ backgroundColor: PRIMARY_COLOR_HEX }}
+                    >
+                      Accept Offer
+                    </button>
                   </div>
                 )}
               </div>
-
-              {/* Detailed Financial & Date Terms */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <span className="text-slate-400 font-bold uppercase tracking-wider block font-mono text-[9px]">
-                    Annual Salary
-                  </span>
-                  <p className="font-bold text-slate-900 mt-0.5 text-sm">
-                    ETB {selectedOffer.salary.toLocaleString()}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-slate-400 font-bold uppercase tracking-wider block font-mono text-[9px]">
-                    Proposed Start Date
-                  </span>
-                  <p className="font-semibold text-slate-700 mt-0.5">
-                    {new Date(selectedOffer.start_date).toLocaleDateString(undefined, {
-                      dateStyle: 'medium',
-                    })}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-slate-400 font-bold uppercase tracking-wider block font-mono text-[9px]">
-                    Offer Expiry Date
-                  </span>
-                  <p className="font-semibold text-slate-700 mt-0.5">
-                    {new Date(selectedOffer.expiry_date).toLocaleDateString(undefined, {
-                      dateStyle: 'medium',
-                    })}
-                  </p>
-                </div>
-              </div>
-
-              {/* Offer Notes */}
-              {selectedOffer.offer_notes && (
-                <div className="bg-slate-50/60 border border-slate-100 p-3.5 rounded-xl">
-                  <span className="font-bold text-slate-600 block mb-1">Notes from the hiring team:</span>
-                  <p className="text-slate-500 leading-relaxed">{selectedOffer.offer_notes}</p>
-                </div>
-              )}
-
-              {/* Decline Reason (if declined) */}
-              {selectedOffer.status.toUpperCase() === 'DECLINED' && selectedOffer.declined_reason && (
-                <div className="bg-rose-50/40 border border-rose-100/50 p-3.5 rounded-xl">
-                  <span className="font-bold text-rose-800 block mb-1">Reason for declining:</span>
-                  <p className="text-rose-700/80">{selectedOffer.declined_reason}</p>
-                </div>
-              )}
-
-              {/* Terms of Agreement Disclaimer */}
-              {isPending && !isExpired && (
-                <div className="border-t border-slate-100 pt-4 space-y-2">
-                  <h4 className="font-bold text-slate-900">Employment Agreement Disclaimer</h4>
-                  <p className="text-[10px] text-slate-400 leading-relaxed bg-slate-50/30 border border-slate-100 p-3 rounded-xl">
-                    By clicking "Accept Offer", you officially confirm your intent to join the company under the specified compensation and benefits structure. A formal contract will be generated and routed to you shortly. You may decline this offer if you no longer wish to pursue this opportunity.
-                  </p>
-                </div>
-              )}
-
-              {/* Action Buttons in Modal */}
-              {isPending && !isExpired && (
-                <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedOfferId(selectedOffer.id);
-                      setShowDeclineModal(true);
-                      setSelectedOffer(null);
-                    }}
-                    disabled={submitting}
-                    className="px-4 py-2 border border-slate-200 hover:border-rose-200 text-slate-600 hover:text-rose-600 hover:bg-rose-50/50 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
-                  >
-                    Decline Offer
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setAcceptTargetId(selectedOffer.id);
-                      setSelectedOffer(null);
-                      setShowAcceptModal(true);
-                    }}
-                    disabled={submitting}
-                    className="px-4 py-2 !text-white rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
-                    style={{ backgroundColor: PRIMARY_COLOR_HEX }}
-                  >
-                    Accept Offer
-                  </button>
-                </div>
-              )}
-            </div>
-          );
-        })()}
+            );
+          })()}
       </Modal>
     </div>
   );

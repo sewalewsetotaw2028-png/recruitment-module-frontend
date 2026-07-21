@@ -23,6 +23,9 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions-shared';
 import { EvaluationResultsView } from './EvaluationResultsView';
 import { HiringMinuteDetailView } from './HiringMinuteDetailView';
+import { fetchCompanyProfile } from '@/hooks/useCompanyProfile';
+import { useInterviewsByVacancy } from '@/hooks/useInterviews';
+import { getCandidateById } from '../../TalentPool/api';
 
 type DetailTab =
   | 'overview'
@@ -45,7 +48,7 @@ interface Props {
   onTransitionStatus: (status: VacancyStatus, notes?: string) => void;
   onUpdateMeta: (
     updates: Partial<
-      Pick<Vacancy, 'closingDate' | 'openPositions' | 'isUrgent'>
+      Pick<Vacancy, 'closingDate' | 'openPositions' | 'isUrgent' | 'openingDate'>
     >,
   ) => void;
   onAddNote: (body: string) => void;
@@ -89,10 +92,29 @@ export const VacancyManagementDetail: React.FC<Props> = ({
   };
 
   const [tab, setTab] = useState<DetailTab>(() => getTabFromPath(location.pathname));
+  const [companyProfile, setCompanyProfile] = useState<any>(null);
+  const [candidateProfile, setCandidateProfile] = useState<any>(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const { interviews: vacInterviews, loading: interviewsLoading } = useInterviewsByVacancy(vacancy.id);
 
   useEffect(() => {
-    setTab(getTabFromPath(location.pathname));
+    const newTab = getTabFromPath(location.pathname);
+    if (newTab !== tab) {
+      setTab(newTab);
+    }
   }, [location.pathname]);
+
+  useEffect(() => {
+    const loadCompanyProfile = async () => {
+      try {
+        const profile = await fetchCompanyProfile();
+        setCompanyProfile(profile);
+      } catch (error) {
+        console.error('Failed to load company profile:', error);
+      }
+    };
+    void loadCompanyProfile();
+  }, []);
 
   const [noteText, setNoteText] = useState('');
   const [statusNotes, setStatusNotes] = useState('');
@@ -106,10 +128,6 @@ export const VacancyManagementDetail: React.FC<Props> = ({
     () => getHiringFunnel(applications, vacancy.id),
     [applications, vacancy.id],
   );
-  const vacInterviews = useMemo(
-    () => getVacancyInterviews(interviews, applications, vacancy.id),
-    [interviews, applications, vacancy.id],
-  );
   const vacApps = useMemo(
     () => applications.filter((a) => a.vacancyId === vacancy.id),
     [applications, vacancy.id],
@@ -119,12 +137,20 @@ export const VacancyManagementDetail: React.FC<Props> = ({
     [vacancy, funnel.total],
   );
   const badge = useMemo(
-    () => vacancyStatusBadge(vacancy.vacancyStatus),
-    [vacancy.vacancyStatus],
+    () => {
+      const normalizedStatus = String(vacancy.vacancyStatus ?? '').toLowerCase();
+      const effectiveStatus = (normalizedStatus === 'published' && funnel.total > 0) ? 'in_progress' : normalizedStatus;
+      return vacancyStatusBadge(effectiveStatus as VacancyStatus);
+    },
+    [vacancy.vacancyStatus, funnel.total],
   );
   const progress = useMemo(
-    () => getLifecycleProgress(vacancy.vacancyStatus),
-    [vacancy.vacancyStatus],
+    () => {
+      const normalizedStatus = String(vacancy.vacancyStatus ?? '').toLowerCase();
+      const effectiveStatus = (normalizedStatus === 'published' && funnel.total > 0) ? 'in_progress' : normalizedStatus;
+      return getLifecycleProgress(effectiveStatus as VacancyStatus);
+    },
+    [vacancy.vacancyStatus, funnel.total],
   );
   const urgent = useMemo(() => isUrgentVacancy(vacancy), [vacancy]);
   const reversedNotes = useMemo(
@@ -156,6 +182,16 @@ export const VacancyManagementDetail: React.FC<Props> = ({
       onTransitionStatus(nextStatus, statusNotes);
       setSelectedTransition('');
       setStatusNotes('');
+    }
+  };
+
+  const handleViewCandidateProfile = async (candidateId: string) => {
+    try {
+      const response = await getCandidateById(candidateId);
+      setCandidateProfile(response.data);
+      setShowProfileModal(true);
+    } catch (err) {
+      console.error('Failed to fetch candidate profile:', err);
     }
   };
 
@@ -211,10 +247,8 @@ export const VacancyManagementDetail: React.FC<Props> = ({
                 </span>
               )}
               {posting && (
-                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/60 uppercase tracking-wide">
-              {vacancy.vacancyStatus
-                ? vacancy.vacancyStatus.replace('_', ' ')
-                : 'Draft'}
+                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${badge.className}`}>
+              {badge.label}
             </span>
               )}
             </div>
@@ -349,8 +383,10 @@ export const VacancyManagementDetail: React.FC<Props> = ({
           </div>
           <div className="flex flex-wrap gap-1.5">
             {LIFECYCLE_STEPS.map((step) => {
+              const normalizedStatus = String(vacancy.vacancyStatus ?? '').toLowerCase();
+              const effectiveStatus = (normalizedStatus === 'published' && funnel.total > 0) ? 'in_progress' : normalizedStatus;
               const currentIdx = LIFECYCLE_STEPS.findIndex(
-                (s) => s.status === vacancy.vacancyStatus
+                (s) => s.status === effectiveStatus
               );
               const stepIdx = LIFECYCLE_STEPS.findIndex(
                 (s) => s.status === step.status
@@ -429,6 +465,18 @@ export const VacancyManagementDetail: React.FC<Props> = ({
       {tab === "overview" && (
         
           <div className="col-span-12 lg:col-span-8 bg-white border border-slate-200 rounded-xl p-6 space-y-6 shadow-sm">
+            {/* Company Description */}
+            {companyProfile?.description && (
+              <div className="space-y-3">
+                <h4 className="font-bold text-slate-900 uppercase tracking-wider text-xs">
+                  About {companyProfile.name || 'Our Company'}
+                </h4>
+                <p className="whitespace-pre-line text-sm text-slate-600 leading-relaxed">
+                  {companyProfile.description}
+                </p>
+              </div>
+            )}
+
             <div className="space-y-3">
               <h4 className="font-bold text-slate-900 uppercase tracking-wider text-xs">
                 Role Description
@@ -519,6 +567,24 @@ export const VacancyManagementDetail: React.FC<Props> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-6 border-t border-slate-100 text-sm">
               <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl p-4 shadow-md">
                 <label
+                  htmlFor="openingDate"
+                  className="font-bold uppercase tracking-wider text-[11px] text-indigo-700 mb-2 block"
+                >
+                  Opening Date Target
+                </label>
+                <input
+                  id="openingDate"
+                  type="date"
+                  value={vacancy.openingDate ? vacancy.openingDate.slice(0, 10) : ""}
+                  onChange={(e) =>
+                    onUpdateMeta({ openingDate: e.target.value })
+                  }
+                  disabled={!canUpdate}
+                  className="w-full p-3 border-2 border-indigo-300 rounded-lg bg-white text-slate-800 font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600 text-sm shadow-sm"
+                />
+              </div>
+              <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl p-4 shadow-md">
+                <label
                   htmlFor="closingDate"
                   className="font-bold uppercase tracking-wider text-[11px] text-indigo-700 mb-2 block"
                 >
@@ -535,7 +601,6 @@ export const VacancyManagementDetail: React.FC<Props> = ({
                   className="w-full p-3 border-2 border-indigo-300 rounded-lg bg-white text-slate-800 font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600 text-sm shadow-sm"
                 />
               </div>
-              
             </div>
           </div>
 
@@ -550,8 +615,8 @@ export const VacancyManagementDetail: React.FC<Props> = ({
                 <tr className="bg-slate-50 border-b border-slate-200 uppercase text-[10px] text-slate-500 font-bold tracking-wider">
                   <th className="p-4">Candidate Name</th>
                   <th className="p-4">Pipeline Stage</th>
-                  <th className="p-4">Matching Matrix Score</th>
                   <th className="p-4">Submission Date</th>
+                  <th className="p-4">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
@@ -577,23 +642,20 @@ export const VacancyManagementDetail: React.FC<Props> = ({
                       <td className="p-4 font-medium text-slate-600">
                         {app.currentStage}
                       </td>
-                      <td className="p-4 font-mono">
-                        {app.matchScore != null ? (
-                          <span
-                            className={`px-2 py-0.5 rounded font-bold text-xs ${
-                              app.matchScore >= 75
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                                : "bg-slate-100 text-slate-700"
-                            }`}
-                          >
-                            {app.matchScore}%
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
                       <td className="p-4 text-slate-500 font-medium">
                         {new Date(app.submittedAt).toLocaleDateString()}
+                      </td>
+                      <td className="p-4">
+                        <button
+                          type="button"
+                          onClick={() => handleViewCandidateProfile(app.candidateId)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold hover:bg-indigo-100 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">
+                            person
+                          </span>
+                          View Profile
+                        </button>
                       </td>
                     </tr>
                   ))
@@ -613,7 +675,7 @@ export const VacancyManagementDetail: React.FC<Props> = ({
                   <th className="p-4">Candidate Target</th>
                   <th className="p-4">Assessment Mode</th>
                   <th className="p-4">Scheduled Time Slot</th>
-                  <th className="p-4">Confirmation State</th>
+                  <th className="p-4">Interview Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
@@ -634,16 +696,13 @@ export const VacancyManagementDetail: React.FC<Props> = ({
                       className="hover:bg-slate-50/50 transition-colors"
                     >
                       <td className="p-4 font-semibold text-slate-900">
-                        {
-                          applications.find((a) => a.id === int.applicationId)
-                            ?.candidateName
-                        }
+                        {int.candidateName}
                       </td>
                       <td className="p-4 font-medium text-slate-600 capitalize">
-                        {int.interviewType}
+                        {int.mode}
                       </td>
                       <td className="p-4 font-mono text-slate-500">
-                        {new Date(int.scheduledStart).toLocaleString(
+                        {new Date(int.start_time).toLocaleString(
                           undefined,
                           {
                             dateStyle: "medium",
@@ -654,12 +713,12 @@ export const VacancyManagementDetail: React.FC<Props> = ({
                       <td className="p-4 capitalize">
                         <span
                           className={`px-2 py-0.5 rounded font-bold text-xs ${
-                            int.interviewStatus === "completed"
+                            int.status === "COMPLETED"
                               ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
                               : "bg-amber-50 text-amber-700 border border-amber-100"
                           }`}
                         >
-                          {int.interviewStatus}
+                          {int.status}
                         </span>
                       </td>
                     </tr>
@@ -677,6 +736,283 @@ export const VacancyManagementDetail: React.FC<Props> = ({
 
       {tab === "hiring_minute" && (
         <HiringMinuteDetailView hiringMinuteId="" vacancyId={vacancy.id} onStatusChange={setHmStatus} />
+      )}
+
+      {/* Candidate Profile Modal */}
+      {showProfileModal && candidateProfile && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[99999] flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden transform transition-all scale-100 flex flex-col max-h-[85vh]">
+            {/* Header / Identity Block */}
+            <div className="px-4 py-3 bg-gradient-to-r from-indigo-50 to-slate-50 border-b border-slate-200 flex-shrink-0">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-lg border-2 border-indigo-200">
+                    {candidateProfile.first_name?.[0]}{candidateProfile.last_name?.[0]}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-base">
+                      {candidateProfile.first_name} {candidateProfile.last_name}
+                    </h3>
+                    {candidateProfile.current_position && candidateProfile.current_employer && (
+                      <p className="text-[10px] text-slate-600 mt-0.5">
+                        {candidateProfile.current_position} at {candidateProfile.current_employer}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowProfileModal(false)}
+                  className="text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="px-5 py-4 space-y-5 text-xs leading-relaxed text-slate-600 overflow-y-auto flex-1">
+              {/* Quick-match summary */}
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="bg-slate-50 rounded-xl p-2.5">
+                  <h5 className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[13px] text-indigo-500">work</span>
+                    Experience
+                  </h5>
+                  <p className="font-semibold text-slate-800 text-[12px] mt-1">
+                    {candidateProfile.years_of_experience ?? 'N/A'} years
+                  </p>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-2.5">
+                  <h5 className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[13px] text-indigo-500">category</span>
+                    Preferred category
+                  </h5>
+                  <p className="font-semibold text-slate-800 text-[12px] mt-1">
+                    {candidateProfile.preferred_job_category ?? 'Not specified'}
+                  </p>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-2.5">
+                  <h5 className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[13px] text-indigo-500">location_on</span>
+                    Preferred location
+                  </h5>
+                  <p className="font-semibold text-slate-800 text-[12px] mt-1">
+                    {candidateProfile.preferred_location ?? 'Not specified'}
+                  </p>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-2.5">
+                  <h5 className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[13px] text-indigo-500">payments</span>
+                    Expected salary
+                  </h5>
+                  <p className="font-semibold text-slate-800 text-[12px] mt-1">
+                    {candidateProfile.expected_salary ?? 'Not specified'}
+                  </p>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-2.5 col-span-2">
+                  <h5 className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[13px] text-indigo-500">public</span>
+                    Nationality
+                  </h5>
+                  <p className="font-semibold text-slate-800 text-[12px] mt-1">
+                    {candidateProfile.nationality ?? 'Not specified'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-100" />
+
+              {/* Key Skills */}
+              <div className="bg-slate-50 rounded-xl p-2.5">
+                <h5 className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1 mb-1.5">
+                  <span className="material-symbols-outlined text-[13px] text-indigo-500">psychology</span>
+                  Key skills
+                </h5>
+                {candidateProfile.skills && candidateProfile.skills.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {candidateProfile.skills.map((skill: string, idx: number) => (
+                      <span
+                        key={idx}
+                        className="bg-white text-indigo-700 px-2.5 py-1 rounded-full text-[10px] font-medium"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-slate-400 text-[11px]">No skills listed</p>
+                )}
+              </div>
+
+              {/* Contact Info */}
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="bg-slate-50 rounded-xl p-2.5">
+                  <h5 className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[13px] text-indigo-500">email</span>
+                    Email
+                  </h5>
+                  <p className="font-semibold text-slate-800 text-[12px] mt-1 truncate">
+                    {candidateProfile.email ?? 'Not provided'}
+                  </p>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-2.5">
+                  <h5 className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[13px] text-indigo-500">phone</span>
+                    Phone
+                  </h5>
+                  <p className="font-semibold text-slate-800 text-[12px] mt-1">
+                    {candidateProfile.phone ?? candidateProfile.phones?.[0]?.phone_number ?? 'Not provided'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Address */}
+              <div className="bg-slate-50 rounded-xl p-2.5">
+                <h5 className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[13px] text-indigo-500">home</span>
+                  Address
+                </h5>
+                <p className="font-semibold text-slate-800 text-[12px] mt-1">
+                  {candidateProfile.current_address ?? 
+                    (candidateProfile.addresses?.[0]
+                      ? [candidateProfile.addresses[0].city, candidateProfile.addresses[0].sub_city, candidateProfile.addresses[0].region].filter(Boolean).join(', ')
+                      : 'Not provided')
+                  }
+                </p>
+              </div>
+
+              {/* Experience */}
+              {candidateProfile.experiences && candidateProfile.experiences.length > 0 && (
+                <div className="bg-slate-50 rounded-xl p-2.5">
+                  <h5 className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1 mb-1.5">
+                    <span className="material-symbols-outlined text-[13px] text-indigo-500">business_center</span>
+                    Work experience
+                  </h5>
+                  <div className="space-y-2">
+                    {candidateProfile.experiences.map((exp: any, index: number) => (
+                      <div key={index} className="p-2.5 bg-white rounded-lg">
+                        <div className="flex justify-between items-start gap-2">
+                          <div>
+                            <p className="font-semibold text-slate-800 text-[11px]">{exp.job_title}</p>
+                            <p className="text-slate-500 text-[10px]">{exp.company_name}</p>
+                          </div>
+                          <span className="text-slate-400 text-[9px] whitespace-nowrap">
+                            {new Date(exp.start_date).toLocaleDateString()} – {' '}
+                            {exp.end_date ? new Date(exp.end_date).toLocaleDateString() : 'Present'}
+                          </span>
+                        </div>
+                        {exp.description && (
+                          <p className="text-slate-500 mt-1.5 text-[10px]">{exp.description}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Education */}
+              <div className="bg-slate-50 rounded-xl p-2.5">
+                <h5 className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1 mb-1.5">
+                  <span className="material-symbols-outlined text-[13px] text-indigo-500">school</span>
+                  Education
+                </h5>
+                {candidateProfile.educations && candidateProfile.educations.length > 0 ? (
+                  <div className="space-y-2">
+                    {candidateProfile.educations.map((e: any, index: number) => (
+                      <div key={index} className="p-2.5 bg-white rounded-lg flex justify-between items-center">
+                        <div>
+                          <p className="font-semibold text-slate-800 text-[11px]">
+                            {e.degree} in {e.field_of_study}
+                          </p>
+                          <p className="text-slate-500 text-[10px] mt-0.5">
+                            {e.institution_name || e.institution}
+                          </p>
+                        </div>
+                        <span className="text-slate-400 text-[9px]">
+                          {e.graduation_year ? new Date(e.graduation_year).getFullYear() : ''}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-slate-400 text-[11px]">No education listed</p>
+                )}
+              </div>
+
+              {/* Certifications */}
+              {candidateProfile.certifications && candidateProfile.certifications.length > 0 && (
+                <div className="bg-slate-50 rounded-xl p-2.5">
+                  <h5 className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1 mb-1.5">
+                    <span className="material-symbols-outlined text-[13px] text-indigo-500">workspace_premium</span>
+                    Certifications
+                  </h5>
+                  <div className="space-y-2">
+                    {candidateProfile.certifications.map((cert: any, index: number) => {
+                      const isExpired = cert.expiration_date && new Date(cert.expiration_date) < new Date();
+                      return (
+                        <div
+                          key={index}
+                          className={`p-2.5 rounded-lg flex justify-between items-center ${
+                            isExpired ? 'bg-red-50' : 'bg-white'
+                          }`}
+                        >
+                          <div>
+                            <p className="font-semibold text-slate-800 text-[11px]">{cert.name}</p>
+                            <p className="text-slate-500 text-[10px] mt-0.5">{cert.issuing_organization}</p>
+                          </div>
+                          <div className="text-right shrink-0 ml-2">
+                            <span className="text-slate-400 text-[9px] block">
+                              {new Date(cert.issue_date).toLocaleDateString()}
+                            </span>
+                            {cert.expiration_date && (
+                              <span className={`block text-[9px] font-medium mt-0.5 ${isExpired ? 'text-red-600' : 'text-slate-400'}`}>
+                                {isExpired ? 'Expired' : 'Expires'} {new Date(cert.expiration_date).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="border-t border-slate-100" />
+
+              {/* Resume/CV */}
+              <div className="bg-slate-50 rounded-xl p-2.5">
+                <h5 className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1 mb-1.5">
+                  <span className="material-symbols-outlined text-[13px] text-indigo-500">description</span>
+                  Resume/CV
+                </h5>
+                {candidateProfile.candidate_document?.cv && candidateProfile.candidate_document.cv.length > 0 ? (
+                  <a
+                    href={candidateProfile.candidate_document.cv[0]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[11px] font-medium transition"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">download</span>
+                    Download resume
+                  </a>
+                ) : (
+                  <p className="text-slate-400 text-[11px]">No resume uploaded</p>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowProfileModal(false)}
+                className="w-full py-2.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
   </div>
   );

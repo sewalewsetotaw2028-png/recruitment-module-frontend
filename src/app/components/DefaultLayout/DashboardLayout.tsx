@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import { Sidebar } from '../Sidebar';
-import { Header } from '../Header';
+import { Sidebar } from './Sidebar';
+import { Header } from './Header';
+import { EmailVerificationBanner } from '@/components/auth/EmailVerificationBanner';
 
 const WorkspaceFallback = () => (
   <div className="page-shell">
@@ -27,7 +28,11 @@ export const DashboardLayout: React.FC = () => {
         />
       )}
 
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar 
+        isOpen={sidebarOpen} 
+        onToggle={() => setSidebarOpen((open) => !open)}
+        onClose={() => setSidebarOpen(false)} 
+      />
 
       <div
         className={`flex min-h-screen flex-1 flex-col transition-[padding] duration-300 ${
@@ -38,6 +43,9 @@ export const DashboardLayout: React.FC = () => {
           sidebarOpen={sidebarOpen}
           onMenuClick={() => setSidebarOpen((open) => !open)}
         />
+
+        {/* Email verification reminder banner for unverified users */}
+        <EmailVerificationBanner />
 
         <main className="custom-scrollbar mt-16 min-h-[calc(100vh-64px)] flex-grow overflow-x-hidden pb-16">
           <React.Suspense fallback={<WorkspaceFallback />}>

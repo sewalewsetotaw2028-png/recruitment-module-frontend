@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useEffect, useCallback } from 'react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useSession } from '@/hooks/useSession';
@@ -11,17 +10,11 @@ import {
   addSignatory,
   addToRoster,
   sendRegrets,
+  type HiringMinute,
+  type RejectedCandidate,
 } from '../../../../hooks/useInterviewEvaluations';
 import { fetchVacancyHiringMinute } from '../api';
 import { PERMISSIONS } from '@/lib/permissions-shared';
-
-interface RejectedCandidate {
-  application_id: string;
-  candidate_name: string;
-  candidate_email?: string;
-  roster_added?: boolean;
-  regret_sent_at?: string;
-}
 
 interface HiringMinuteDetailViewProps {
   /** Pass a resolved hiring minute ID when available, or leave empty to resolve via vacancyId. */
@@ -51,6 +44,7 @@ export const HiringMinuteDetailView: React.FC<HiringMinuteDetailViewProps> = ({
   // Per-candidate roster and regret state
   const [rosterAdded, setRosterAdded] = useState<Set<string>>(new Set());
   const [regretSent, setRegretSent] = useState<Map<string, string>>(new Map());
+  const [selectedForRoster, setSelectedForRoster] = useState<string[]>([]);
 
   const formattedSelectedCandidateScore =
     hiringMinute?.selected_candidate_score != null &&
@@ -92,16 +86,16 @@ export const HiringMinuteDetailView: React.FC<HiringMinuteDetailViewProps> = ({
 
       // Seed per-candidate state from what the server already knows
       if (data?.rejected_candidates) {
-        const alreadyRoster = new Set(
+        const alreadyRoster = new Set<string>(
           data.rejected_candidates
-            .filter((c) => c.roster_added)
-            .map((c) => c.application_id),
+            .filter((c: any) => c.roster_added)
+            .map((c: any) => c.application_id as string),
         );
-        const alreadyRegret = new Map(
+        const alreadyRegret = new Map<string, string>(
           data.rejected_candidates
-            .filter((c) => !!c.regret_sent_at)
-            .map((c) => [
-              c.application_id,
+            .filter((c: any) => !!c.regret_sent_at)
+            .map((c: any) => [
+              c.application_id as string,
               new Date(c.regret_sent_at as string).toLocaleDateString(),
             ]),
         );
@@ -231,8 +225,10 @@ export const HiringMinuteDetailView: React.FC<HiringMinuteDetailViewProps> = ({
     }
   };
 
-  const handleAddToRoster = async () => {
-    if (selectedForRoster.length === 0) {
+  const handleAddToRoster = async (applicationId?: string) => {
+    const candidatesToAdd = applicationId ? [applicationId] : selectedForRoster;
+    
+    if (candidatesToAdd.length === 0) {
       toast('Please select candidates to add to talent roster', 'error');
       return;
     }
@@ -245,7 +241,7 @@ export const HiringMinuteDetailView: React.FC<HiringMinuteDetailViewProps> = ({
 
     setSubmitting(true);
     try {
-      await addToRoster(currentHiringMinuteId, selectedForRoster);
+      await addToRoster(currentHiringMinuteId, candidatesToAdd);
       toast('Candidates added to talent roster', 'success');
       setSelectedForRoster([]);
 
@@ -269,7 +265,18 @@ export const HiringMinuteDetailView: React.FC<HiringMinuteDetailViewProps> = ({
     try {
       await sendRegrets(currentHiringMinuteId);
       toast('Regret notifications sent', 'success');
-      setRegretsSent(true);
+      // Mark all rejected candidates as having regrets sent
+      if (hiringMinute?.rejected_candidates) {
+        const timestamp = new Date().toLocaleDateString();
+        const rejectedCandidates = hiringMinute.rejected_candidates;
+        setRegretSent((prev) => {
+          const updated = new Map(prev);
+          rejectedCandidates.forEach((c: any) => {
+            updated.set(c.application_id, timestamp);
+          });
+          return updated;
+        });
+      }
 
     } catch (err: unknown) {
       const message =
@@ -283,8 +290,8 @@ export const HiringMinuteDetailView: React.FC<HiringMinuteDetailViewProps> = ({
   const handleSendAllRegrets = async () => {
     if (!hiringMinute?.rejected_candidates) return;
     const unnotified = hiringMinute.rejected_candidates
-      .filter((c) => !regretSent.has(c.application_id))
-      .map((c) => c.application_id);
+      .filter((c: any) => !regretSent.has(c.application_id))
+      .map((c: any) => c.application_id);
     if (unnotified.length === 0) return;
 
     if (!window.confirm(`Send regret emails to ${unnotified.length} candidate(s)?`)) return;
@@ -295,7 +302,7 @@ export const HiringMinuteDetailView: React.FC<HiringMinuteDetailViewProps> = ({
       const timestamp = new Date().toLocaleDateString();
       setRegretSent((prev) => {
         const updated = new Map(prev);
-        unnotified.forEach(id => updated.set(id, timestamp));
+        unnotified.forEach((id: string) => updated.set(id, timestamp));
         return updated;
       });
       toast(`${unnotified.length} regret notification(s) sent`, 'success');
@@ -341,11 +348,11 @@ export const HiringMinuteDetailView: React.FC<HiringMinuteDetailViewProps> = ({
   const isRejected = hiringMinute.final_decision === 'REJECTED';
   const isPending = hiringMinute.final_decision === 'PENDING';
   const selectedCandidates = hiringMinute.selected_candidates || [];
-  const currentUserHasSigned = hiringMinute.signatories?.some(s => s.user_id === user?.id);
+  const currentUserHasSigned = hiringMinute.signatories?.some((s: any) => s.user_id === user?.id);
 
   const unnotifiedCount =
     hiringMinute.rejected_candidates?.filter(
-      (c) => !regretSent.has(c.application_id),
+      (c: any) => !regretSent.has(c.application_id),
     ).length ?? 0;
 
   return (
@@ -591,7 +598,7 @@ export const HiringMinuteDetailView: React.FC<HiringMinuteDetailViewProps> = ({
           <p className="text-xs italic text-slate-400">No panel members recorded.</p>
         ) : (
           <div className="space-y-2">
-            {hiringMinute.panel_members.map((member: any, index: number) => (
+            {hiringMinute.panel_members.map((member, index) => (
               <div
                 key={index}
                 className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
@@ -615,7 +622,7 @@ export const HiringMinuteDetailView: React.FC<HiringMinuteDetailViewProps> = ({
           <p className="text-xs italic text-slate-400">No signatures recorded yet.</p>
         ) : (
           <div className="space-y-2">
-            {hiringMinute.signatories.map((signatory: any, index: number) => (
+            {hiringMinute.signatories.map((signatory, index) => (
               <div
                 key={index}
                 className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
@@ -782,8 +789,7 @@ export const HiringMinuteDetailView: React.FC<HiringMinuteDetailViewProps> = ({
                         ) : (
                           <button
                             type="button"
-                            onClick={() => handleAddToRoster()} // Assuming this needs to be fixed to track which candidate
-
+                            onClick={() => handleAddToRoster(candidate.application_id)}
                             disabled={submitting}
                             className="px-3 py-1.5 text-xs font-bold bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-colors disabled:opacity-50"
                           >
@@ -799,8 +805,7 @@ export const HiringMinuteDetailView: React.FC<HiringMinuteDetailViewProps> = ({
                         ) : (
                           <button
                             type="button"
-                            onClick={() => sendRegrets(hiringMinute.id)} // Wait, handleSendRegret isn't defined, I'll just use the bulk send as fallback
-
+                            onClick={() => handleSendRegrets()}
                             disabled={submitting}
                             className="px-3 py-1.5 text-xs font-bold bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 transition-colors disabled:opacity-50"
                           >

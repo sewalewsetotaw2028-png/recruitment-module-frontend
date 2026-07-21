@@ -40,12 +40,10 @@ import {
 import {
   fetchVacancyApplications,
   fetchVacancyHiringMinute,
-} from './api';
-import {
   publishJobPosting,
   createJobPosting,
   withdrawJobPosting,
-} from './jobPostingApi';
+} from './api';
 import { useAuth } from '@/hooks/useAuth';
 
 export const VacancyHub: React.FC = () => {
@@ -92,10 +90,7 @@ export const VacancyHub: React.FC = () => {
       if (selectedVacancyId !== vacancyId) {
         setSelectedVacancyId(vacancyId);
       }
-      // if (vacancyHubView !== 'detail') {
-      //   setVacancyHubView('detail');
-      // }
-       if (vacancyHubView === 'list') {
+      if (vacancyHubView === 'list') {
         setVacancyHubView('detail');
       }
     } else if (location.pathname === '/dashboard/vacancies' || location.pathname === '/dashboard/vacancies/') {
@@ -107,7 +102,7 @@ export const VacancyHub: React.FC = () => {
         setVacancyHubView('list');
       }
     }
-  }, [vacancyId, selectedVacancyId, vacancyHubView, location.pathname, setSelectedVacancyId, setVacancyHubView]);
+  }, [vacancyId, location.pathname]);
 
   const canCancel = canManageStatus;
 
@@ -278,19 +273,19 @@ export const VacancyHub: React.FC = () => {
           const mapStatus = (status: string): Application['applicationStatus'] => {
             const s = String(status).toUpperCase();
             switch (s) {
-              case 'SUBMITTED': return 'submitted';
-              case 'UNDER_SCREENING': return 'screening';
-              case 'SHORTLISTED': return 'shortlisted';
-              case 'INTERVIEW_SCHEDULED':
-              case 'INTERVIEW_COMPLETED': return 'interview';
-              case 'UNDER_EVALUATION': return 'interview';
-              case 'SELECTED': return 'hired';
-              case 'OFFER_ISSUED':
-              case 'OFFER_ACCEPTED': return 'offered';
-              case 'OFFER_DECLINED': return 'rejected';
-              case 'REJECTED': return 'rejected';
-              case 'MOVED_TO_TALENT_ROSTER': return 'shortlisted';
-              default: return 'submitted';
+              case 'SUBMITTED': return 'SUBMITTED';
+              case 'UNDER_SCREENING': return 'UNDER_SCREENING';
+              case 'SHORTLISTED': return 'SHORTLISTED';
+              case 'INTERVIEW_SCHEDULED': return 'INTERVIEW_SCHEDULED';
+              case 'INTERVIEW_COMPLETED': return 'INTERVIEW_COMPLETED';
+              case 'UNDER_EVALUATION': return 'UNDER_EVALUATION';
+              case 'SELECTED': return 'SELECTED';
+              case 'OFFER_ISSUED': return 'OFFER_ISSUED';
+              case 'OFFER_ACCEPTED': return 'OFFER_ACCEPTED';
+              case 'OFFER_DECLINED': return 'OFFER_DECLINED';
+              case 'REJECTED': return 'REJECTED';
+              case 'MOVED_TO_TALENT_ROSTER': return 'MOVED_TO_TALENT_ROSTER';
+              default: return 'SUBMITTED';
             }
           };
 
@@ -367,10 +362,11 @@ export const VacancyHub: React.FC = () => {
     }
   }, [actionSuccess, toast, stableDispatch]);
 
-  // Auto-close overdue vacancies
+  // Auto-close overdue vacancies and auto-open vacancies past opening date
   useEffect(() => {
     const now = new Date();
     vacancies.forEach((vacancy) => {
+      // Auto-close overdue vacancies
       if (
         ['open', 'published', 'in_progress'].includes(vacancy.vacancyStatus) &&
         vacancy.closingDate
@@ -379,6 +375,24 @@ export const VacancyHub: React.FC = () => {
         if (closingDate < now) {
           dispatch(
             vacanciesActions.closeVacancyRequest(vacancy.id),
+          );
+        }
+      }
+
+      // Auto-open vacancies past opening date (if not published)
+      if (
+        vacancy.vacancyStatus === 'draft' &&
+        vacancy.openingDate &&
+        vacancy.closingDate
+      ) {
+        const openingDate = new Date(vacancy.openingDate);
+        const closingDate = new Date(vacancy.closingDate);
+        if (openingDate <= now && now < closingDate) {
+          dispatch(
+            vacanciesActions.setVacancyStatusRequest({
+              vacancyId: vacancy.id,
+              status: 'OPEN',
+            }),
           );
         }
       }
@@ -392,6 +406,8 @@ export const VacancyHub: React.FC = () => {
     request: RecruitmentRequest,
   ): Vacancy => {
     const now = new Date();
+    const opening = new Date(now);
+    opening.setDate(opening.getDate() + 1); // Opening date is tomorrow by default
     const closing = new Date(now);
     closing.setDate(closing.getDate() + 90);
     const id = `vac-${Date.now()}`;
@@ -429,6 +445,7 @@ export const VacancyHub: React.FC = () => {
       experienceRequired: request.experienceYears
         ? `${request.experienceYears}+ years`
         : '',
+      openingDate: opening.toISOString().slice(0, 10),
       closingDate: closing.toISOString().slice(0, 10),
       hiringManagerId: request.hiringManagerId,
       hiringManagerName: request.hiringManagerName,
@@ -452,6 +469,8 @@ export const VacancyHub: React.FC = () => {
     departmentName: string,
   ): Vacancy => {
     const now = new Date();
+    const opening = new Date(now);
+    opening.setDate(opening.getDate() + 1); // Opening date is tomorrow by default
     const closing = new Date(now);
     closing.setDate(closing.getDate() + 90);
     const id = `vac-${Date.now()}`;
@@ -478,6 +497,7 @@ export const VacancyHub: React.FC = () => {
       benefits: '',
       employmentTerms: '',
       experienceRequired: '',
+      openingDate: opening.toISOString().slice(0, 10),
       closingDate: closing.toISOString().slice(0, 10),
       hiringManagerId: '',
       hiringManagerName: '',
@@ -518,8 +538,7 @@ export const VacancyHub: React.FC = () => {
     if (!selectedVacancy) return;
     setPostingLoading(true);
     try {
-      const updated = await publishJobPosting(selectedVacancy.id, channelIds);
-      setPostingState(updated);
+      await publishJobPosting(selectedVacancy.id, channelIds);
       loadedForVacancyId.current = selectedVacancy.id;
       // Also mark the vacancy itself as published in Redux state
       dispatch(vacanciesActions.postVacancyRequest(selectedVacancy.id));
@@ -539,8 +558,7 @@ export const VacancyHub: React.FC = () => {
     }
     setPostingLoading(true);
     try {
-      const newPosting = await createJobPosting(selectedVacancy.id, channelIds);
-      setPostingState(newPosting);
+      await createJobPosting(selectedVacancy.id, channelIds);
       loadedForVacancyId.current = selectedVacancy.id;
       // Sync vacancy status to OPEN/PUBLISHED in Redux
       dispatch(vacanciesActions.postVacancyRequest(selectedVacancy.id));
@@ -620,8 +638,7 @@ export const VacancyHub: React.FC = () => {
     if (!selectedVacancy) return;
     setPostingLoading(true);
     try {
-      const updated = await withdrawJobPosting(selectedVacancy.id);
-      setPostingState(updated);
+      await withdrawJobPosting(selectedVacancy.id);
       // Re-fetch vacancies so Redux reflects the new OPEN status
       dispatch(vacanciesActions.fetchVacanciesRequest());
       toast('Job posting withdrawn.', 'success');
@@ -845,6 +862,7 @@ export const VacancyHub: React.FC = () => {
         canPublishVacancy={canManagePosting}
         canManagePosting={canManagePosting}
         canCloseVacancy={canClose}
+        applicationsCount={vacancyApplications.length}
       />
     );
   }
@@ -959,35 +977,39 @@ export const VacancyHub: React.FC = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-6 space-y-6   sm:px-6 lg:px-8 ">
-      <PageSectionHeader
-        eyebrow="Recruitment"
-        title="Vacancies"
-        description="Manage openings, job descriptions, and postings"
-        action={
-          canCreate ? (
+      <section className="max-w-7xl mx-auto p-6 space-y-6 text-sm bg-slate-50 min-h-screen text-slate-800 animate-fade-in"> 
+      <div className="max-w-4xl mx-auto px-6 space-y-6   sm:px-6 lg:px-8 ">
+      <div className="flex flex-col gap-4 rounded-2xl bg-white p-6 border border-slate-200 shadow-sm md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-[11px] font-bold uppercase text-indigo-600 tracking-wider">
+            Recruitment
+          </p>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900 mt-1">
+            Vacancies
+          </h2>
+          <p className="text-slate-500 mt-1 text-sm">
+            Manage openings, job descriptions, and postings
+          </p>
+        </div>
+        {canCreate && (
           <button
             type="button"
             onClick={() => {
               setVacancyHubView('list');
               setHubTab(hubTab === 'create' ? 'vacancies' : 'create');
             }}
-            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-200/80"
+            className="border border-indigo-400 text-slate-700 font-semibold text-sm px-5 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 transition-all flex items-center justify-center gap-2"
           >
-            <span className="material-symbols-outlined text-base">
-              {hubTab === 'create' ? 'arrow_back' : 'add'}
+            <span className="material-symbols-outlined text-[18px]">
+              add
             </span>
-            {hubTab === 'create' ? 'Back to vacancies' : 'Create vacancy'}
+            Create vacancy
           </button>
-          ) : undefined
-        }
-      />
-
-      
+        )}
+      </div>
 
       <VacancyHubMetrics
         openVacancies={openVacancies.length}
-        avgTtf={avgTtf ? `${avgTtf}d` : '—'}
         urgentCount={urgentCount}
         inProgressCount={
           vacancies.filter((v) => v.vacancyStatus === 'in_progress').length
@@ -1053,5 +1075,7 @@ export const VacancyHub: React.FC = () => {
         />
       )}
     </div>
+      </section>
+    
   );
 };

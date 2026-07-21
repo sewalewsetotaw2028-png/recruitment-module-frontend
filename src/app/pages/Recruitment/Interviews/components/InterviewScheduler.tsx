@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 
 import { useToast } from '@/components/common';
+import { usePermissions } from '@/hooks/usePermissions';
+import { PERMISSIONS } from '@/lib/permissions-shared';
+import { fetchEvaluationTemplates } from '@/hooks/useEvaluationTemplates';
+import type { EvaluationTemplate } from '@/hooks/useEvaluationTemplates';
 
 
 
@@ -69,6 +73,7 @@ export const InterviewScheduler: React.FC<InterviewSchedulerProps> = ({
 }) => {
 
   const { toast } = useToast();
+  const { can } = usePermissions();
 
 
 
@@ -105,7 +110,8 @@ export const InterviewScheduler: React.FC<InterviewSchedulerProps> = ({
 
   const [location, setLocation] = useState('');
   const [durationMinutes, setDurationMinutes] = useState(60);
-  const [showMoreInterviews, setShowMoreInterviews] = useState(false);
+  const [upcomingPage, setUpcomingPage] = useState(1);
+  const pageSize = 10;
 
   const [segments, setSegments] = useState<
 
@@ -147,6 +153,19 @@ export const InterviewScheduler: React.FC<InterviewSchedulerProps> = ({
   const [showInterviewModal, setShowInterviewModal] = useState(false);
 
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const [evaluationTemplates, setEvaluationTemplates] = useState<EvaluationTemplate[]>([]);
+
+  useEffect(() => {
+    const loadEvaluationTemplates = async () => {
+      try {
+        const templates = await fetchEvaluationTemplates();
+        setEvaluationTemplates(templates);
+      } catch (error) {
+        console.error('Failed to load evaluation templates:', error);
+      }
+    };
+    void loadEvaluationTemplates();
+  }, []);
 
   const handleGenerateMeetingLink = () => {
     if (scheduledApp) {
@@ -184,29 +203,28 @@ export const InterviewScheduler: React.FC<InterviewSchedulerProps> = ({
 
 
 
-  const relevantQuestions = questionBank.filter((q) => {
-
-    if (!scheduledApp) return true;
-
-    const title = scheduledApp.vacancyTitle.toLowerCase();
-
-    const role = q.jobRole.toLowerCase();
-
-    const area = q.functionalArea.toLowerCase();
-
-    return (
-
-      title.includes(role) ||
-
-      role.includes(title) ||
-
-      title.includes(area) ||
-
-      area.includes(title)
-
-    );
-
-  });
+  const relevantQuestions = React.useMemo(() => {
+    // If interview category is selected, filter questions based on evaluation template criteria
+    if (selectedCategoryId) {
+      const selectedTemplate = evaluationTemplates.find(
+        (template) => template.interview_category_id === selectedCategoryId
+      );
+      
+      if (selectedTemplate && selectedTemplate.criteria.length > 0) {
+        const criteriaNames = selectedTemplate.criteria.map((c) => c.name.toLowerCase());
+        
+        return questionBank.filter((q) => {
+          const questionCategory = q.category?.toLowerCase() || '';
+          return criteriaNames.some((criteriaName) => 
+            questionCategory.includes(criteriaName) || criteriaName.includes(questionCategory)
+          );
+        });
+      }
+    }
+    
+    // If no category selected or no template found, show all questions
+    return questionBank;
+  }, [selectedCategoryId, evaluationTemplates, questionBank]);
 
 
 
@@ -1197,19 +1215,15 @@ export const InterviewScheduler: React.FC<InterviewSchedulerProps> = ({
 
 
 
-            <button
-
-              type="submit"
-
-              className="w-full bg-indigo-600 text-white hover:bg-indigo-700 py-3 text-base font-semibold rounded-lg transition-colors shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2"
-
-            >
-
-              <span className="material-symbols-outlined">send</span>
-
-              Confirm and Dispatch Invitation
-
-            </button>
+            {can(PERMISSIONS.INTERVIEW_CREATE) && (
+              <button
+                type="submit"
+                className="w-full bg-indigo-600 text-white hover:bg-indigo-700 py-3 text-base font-semibold rounded-lg transition-colors shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2"
+              >
+                <span className="material-symbols-outlined">send</span>
+                Confirm and Dispatch Invitation
+              </button>
+            )}
 
           </form>
 
@@ -1218,8 +1232,8 @@ export const InterviewScheduler: React.FC<InterviewSchedulerProps> = ({
 
 
         {/* Upcoming Schedules */}
-
-        <div className="col-span-12 lg:col-span-5 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm flex flex-col h-full">
+        {can(PERMISSIONS.INTERVIEW_READ) && (
+          <div className="col-span-12 lg:col-span-5 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm flex flex-col h-full">
 
           <div className="mb-4">
             <h3 className="text-base font-bold text-slate-900">
@@ -1231,21 +1245,22 @@ export const InterviewScheduler: React.FC<InterviewSchedulerProps> = ({
           </div>
           <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3">
             {(() => {
-              // Sort upcoming first, cap at 20 unless "Show more" is toggled
+              // Sort upcoming first
               const sorted = [...interviews].sort(
                 (a, b) => new Date(a.scheduledStart).getTime() - new Date(b.scheduledStart).getTime()
               );
-              const visible = showMoreInterviews ? sorted : sorted.slice(0, 20);
-              const hasMore = sorted.length > 20;
+              const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+              const paged = sorted.slice((upcomingPage - 1) * pageSize, upcomingPage * pageSize);
               return (
                 <>
-                  {visible.length === 0 ? (
+                  {paged.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-center">
                       <span className="material-symbols-outlined text-4xl text-slate-300 mb-2">event_busy</span>
                       <p className="text-sm text-slate-500">No interviews scheduled yet</p>
                     </div>
                   ) : (
-                    visible.map((int) => (
+                    <>
+                      {paged.map((int) => (
 
                 <div
                   key={int.id}
@@ -1315,16 +1330,31 @@ export const InterviewScheduler: React.FC<InterviewSchedulerProps> = ({
 
                 </div>
 
-              ))
+              ))}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-center gap-2 mt-4">
+                      <button
+                        type="button"
+                        onClick={() => setUpcomingPage(p => Math.max(1, p - 1))}
+                        disabled={upcomingPage === 1}
+                        className="px-3 py-1.5 text-xs font-semibold border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Previous
+                      </button>
+                      <span className="text-xs text-slate-600">
+                        Page {upcomingPage} of {totalPages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setUpcomingPage(p => Math.min(totalPages, p + 1))}
+                        disabled={upcomingPage === totalPages}
+                        className="px-3 py-1.5 text-xs font-semibold border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Next
+                      </button>
+                    </div>
                   )}
-                  {hasMore && !showMoreInterviews && (
-                    <button
-                      type="button"
-                      onClick={() => setShowMoreInterviews(true)}
-                      className="w-full py-2 text-xs font-semibold text-indigo-600 hover:text-indigo-700 border border-dashed border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
-                    >
-                      Show {sorted.length - 20} more interviews
-                    </button>
+                    </>
                   )}
                 </>
               );
@@ -1332,6 +1362,7 @@ export const InterviewScheduler: React.FC<InterviewSchedulerProps> = ({
           </div>
 
         </div>
+        )}
 
       {/* Interview Details Modal */}
       {showInterviewModal && selectedInterview && (

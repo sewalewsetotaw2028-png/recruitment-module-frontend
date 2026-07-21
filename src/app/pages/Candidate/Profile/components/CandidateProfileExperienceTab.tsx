@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState } from 'react';
 import type { CandidateProfileData, Experience } from '@/pages/Candidate/types';
 import Modal from '@/components/ui/Modal/Modal';
@@ -444,7 +443,7 @@ export const CandidateProfileExperienceTab: React.FC<
                   rel="noopener noreferrer"
                   className="text-xs text-indigo-600 font-medium hover:underline truncate"
                 >
-                  {editingExperience.documentName || 'Current attachment'}
+                  {editingExperience.documentUrl?.split('/').pop() || 'Current attachment'}
                 </a>
                 <span className="text-[10px] text-slate-400 ml-auto">
                   (upload new to replace)

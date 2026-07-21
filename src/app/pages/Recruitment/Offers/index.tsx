@@ -2,14 +2,108 @@ import { useOffersSlice } from './slice';
 import React, { useState } from 'react';
 import { useApp } from '@/state';
 import { useToast } from '@/components/common/Toast';
-import { OdooViewHeader } from '@/components/OdooViewHeader/OdooViewHeader';
 import {
   OFFER_TRANSITION_STEPS,
   getOfferTransitionStep,
   hrisSyncBadge,
   offerStatusBadge,
 } from '@/utils/offerManagement';
-import type { OfferFormPayload, OfferStatus } from '@/types';
+import type { OfferFormPayload, OfferTemplate } from '@/types';
+
+interface OfferCreateApplication {
+  candidateName?: string;
+  vacancyTitle?: string;
+  vacancy?: {
+    title?: string;
+  };
+}
+
+// Helper to parse allowances JSON supplied by user
+const parseAllowances = (value: unknown): Record<string, number> => {
+  if (!value) return {};
+  if (typeof value === 'object' && !Array.isArray(value))
+    return value as Record<string, number>;
+  try {
+    return JSON.parse(String(value));
+  } catch {
+    return {};
+  }
+};
+
+const OfferPreview: React.FC<{
+  template: OfferTemplate | null;
+  salary: number;
+  allowances: Record<string, number>;
+  startDate?: string;
+  expiryDate?: string;
+  application?: OfferCreateApplication | null;
+}> = ({ template, salary, allowances, startDate, expiryDate, application }) => {
+  const candidateName = application?.candidateName || 'Candidate Name';
+  const position =
+    application?.vacancyTitle ||
+    application?.vacancy?.title ||
+    'Position Title';
+  const companyName = 'Adiu Communication Service PLC';
+  const salaryFormatted = Number(salary || 0).toLocaleString();
+  return (
+    <div className="space-y-3 text-slate-700">
+      <div className="text-xs text-slate-500">{companyName}</div>
+      <h3 className="text-sm font-extrabold text-slate-900">
+        {template?.name || 'Offer'}
+      </h3>
+      <p className="text-slate-600 text-xs">
+        {candidateName} — {position}
+      </p>
+
+      <div className="bg-white border border-slate-100 rounded-xl p-3">
+        <p className="text-slate-700 text-sm leading-relaxed">
+          Dear <strong>{candidateName}</strong>,
+        </p>
+        <p className="text-slate-600 text-xs mt-2">
+          We are pleased to offer you the position of{' '}
+          <strong>{position}</strong> at <strong>{companyName}</strong>.
+        </p>
+
+        <div className="mt-3 text-xs">
+          <div className="font-bold">Compensation</div>
+          <div>
+            Gross salary: <strong>{salaryFormatted} ETB</strong>
+          </div>
+          {Object.keys(allowances || {}).length > 0 && (
+            <div className="mt-2">
+              <div className="font-bold">Allowances</div>
+              <ul className="list-disc ml-5">
+                {Object.entries(allowances).map(([k, v]) => (
+                  <li key={k}>
+                    {k}: {Number(v).toLocaleString()} ETB
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-3 text-xs text-slate-600">
+          <div>
+            Start date: <strong>{startDate || '-'}</strong>
+          </div>
+          <div>
+            Expiry date: <strong>{expiryDate || '-'}</strong>
+          </div>
+        </div>
+
+        <div className="mt-3 text-xs text-slate-500">
+          {template?.defaultBenefits || ''}
+        </div>
+
+        <div className="mt-3 text-xs">
+          <strong>Next steps:</strong> Please accept this offer by the expiry
+          date to confirm your acceptance.
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const OfferListPage: React.FC = () => {
   useOffersSlice();
@@ -19,11 +113,9 @@ export const OfferListPage: React.FC = () => {
     applications,
     vacancies,
     hrisIntegrationAvailable,
-    setHrisManualMode,
     createOfferFromApplication,
     sendOffer,
     withdrawOffer,
-    reviseOffer,
     submitOfferForApproval,
     syncOfferToHris,
     initiateOnboarding,
@@ -35,13 +127,18 @@ export const OfferListPage: React.FC = () => {
     'dashboard',
   );
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const statusFilter = 'all';
   const [search, setSearch] = useState('');
 
   const [createAppId, setCreateAppId] = useState('');
+  const [allowances, setAllowances] = useState<
+    Array<{ name: string; amount: number }>
+  >([]);
+  const [allowanceName, setAllowanceName] = useState('');
+  const [allowanceAmount, setAllowanceAmount] = useState('');
   const [form, setForm] = useState<Partial<OfferFormPayload>>({
     salary: 50000,
-    employmentType: 'full_time',
+    employmentType: 'FULL_TIME',
     startDate: '2026-07-01',
     expirationDate: '2026-06-30',
     benefits: '',
@@ -49,11 +146,24 @@ export const OfferListPage: React.FC = () => {
   });
 
   const selectedOffer = jobOffers.find((o) => o.id === selectedOfferId);
-  const offeredApps = applications.filter(
-    (a) =>
-      a.applicationStatus === 'offered' &&
-      !jobOffers.some((o) => o.applicationId === a.id),
-  );
+  const selectedApplication = applications.find((a) => a.id === createAppId) as
+    | OfferCreateApplication
+    | undefined;
+  const selectedTemplate = form.templateId
+    ? (offerTemplates.find((t) => t.id === form.templateId) ?? null)
+    : null;
+  const offeredApps = applications.filter((a) => {
+    const rawStatus = String((a as any)?.applicationStatus ?? '').toUpperCase();
+    const isOfferEligible =
+      rawStatus === 'SELECTED' ||
+      rawStatus === 'OFFER_ISSUED' ||
+      rawStatus === 'INTERVIEW' ||
+      rawStatus === 'OFFERED' ||
+      rawStatus === 'INTERVIEW_COMPLETED' ||
+      rawStatus === 'UNDER_EVALUATION';
+
+    return isOfferEligible && !jobOffers.some((o) => o.applicationId === a.id);
+  });
 
   const filtered = jobOffers.filter((o) => {
     const q = search.toLowerCase();
@@ -70,23 +180,34 @@ export const OfferListPage: React.FC = () => {
     setView('detail');
   };
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!createAppId || !form.salary || !form.startDate || !form.expirationDate)
       return;
-    const id = createOfferFromApplication({
+    const allowancesObj = allowances.reduce(
+      (acc, item) => {
+        acc[item.name] = item.amount;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+    const id = await createOfferFromApplication({
       applicationId: createAppId,
       salary: form.salary!,
-      employmentType: form.employmentType || 'full_time',
+      employmentType: form.employmentType || 'FULL_TIME',
       startDate: form.startDate!,
       expirationDate: form.expirationDate!,
       benefits: form.benefits,
       templateId: form.templateId || undefined,
+      allowances: allowancesObj,
     });
     if (id) {
       openDetail(id);
       setCreateAppId('');
-      toast('Offer draft created.', 'success');
+      setAllowances([]);
+      setAllowanceName('');
+      setAllowanceAmount('');
+      toast('Offer created successfully.', 'success');
     }
   };
 
@@ -94,7 +215,6 @@ export const OfferListPage: React.FC = () => {
     const step = getOfferTransitionStep(selectedOffer);
     const hrisBadge = hrisSyncBadge(selectedOffer.hrisSyncStatus);
     const badge = offerStatusBadge(selectedOffer.status);
-    const vac = vacancies.find((v) => v.id === selectedOffer.vacancyId);
 
     return (
       <div className="mx-auto w-full max-w-7xl space-y-8 p-6 bg-slate-50/50 rounded-3xl min-h-screen text-xs animate-fadeIn">
@@ -400,7 +520,9 @@ export const OfferListPage: React.FC = () => {
               <select
                 required
                 value={createAppId}
-                onChange={(e) => setCreateAppId(e.target.value)}
+                onChange={(e) => {
+                  setCreateAppId(e.target.value);
+                }}
                 className="w-full p-3 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-medium text-slate-800 appearance-none cursor-pointer"
               >
                 <option value="">Select Candidate…</option>
@@ -429,6 +551,135 @@ export const OfferListPage: React.FC = () => {
               }
               className="w-full p-3 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-bold text-slate-800"
             />
+          </label>
+
+          <label className="block space-y-1.5">
+            <span className="font-black uppercase text-[10px] text-slate-400 tracking-wider">
+              Offer Template
+            </span>
+            <div className="relative">
+              <select
+                value={form.templateId}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, templateId: e.target.value }))
+                }
+                className="w-full p-3 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-medium text-slate-800 appearance-none cursor-pointer"
+              >
+                <option value="">Select template (optional)</option>
+                {offerTemplates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[18px]">
+                unfold_more
+              </span>
+            </div>
+          </label>
+
+          <div className="grid grid-cols-2 gap-4">
+            <label className="block space-y-1.5">
+              <span className="font-black uppercase text-[10px] text-slate-400 tracking-wider">
+                Start Date *
+              </span>
+              <input
+                type="date"
+                required
+                value={form.startDate}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, startDate: e.target.value }))
+                }
+                className="w-full p-3 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-medium text-slate-800"
+              />
+            </label>
+
+            <label className="block space-y-1.5">
+              <span className="font-black uppercase text-[10px] text-slate-400 tracking-wider">
+                Expiry Date *
+              </span>
+              <input
+                type="date"
+                required
+                value={form.expirationDate}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, expirationDate: e.target.value }))
+                }
+                className="w-full p-3 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-medium text-slate-800"
+              />
+            </label>
+          </div>
+
+          <label className="block space-y-1.5">
+            <span className="font-black uppercase text-[10px] text-slate-400 tracking-wider">
+              Allowances
+            </span>
+            <div className="space-y-2">
+              {allowances.map((item, index) => (
+                <div key={index} className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    value={item.name}
+                    readOnly
+                    className="flex-1 p-2 border border-slate-200 rounded-lg bg-slate-50 text-xs"
+                  />
+                  <input
+                    type="number"
+                    value={item.amount}
+                    readOnly
+                    className="w-24 p-2 border border-slate-200 rounded-lg bg-slate-50 text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAllowances(allowances.filter((_, i) => i !== index))
+                    }
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">
+                      delete
+                    </span>
+                  </button>
+                </div>
+              ))}
+              <div className="flex gap-2 items-center">
+                <input
+                  type="text"
+                  placeholder="Allowance name (e.g., Transport)"
+                  value={allowanceName}
+                  onChange={(e) => setAllowanceName(e.target.value)}
+                  className="flex-1 p-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+                <input
+                  type="number"
+                  placeholder="Amount (ETB)"
+                  value={allowanceAmount}
+                  onChange={(e) => setAllowanceAmount(e.target.value)}
+                  className="w-24 p-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (allowanceName && allowanceAmount) {
+                      setAllowances([
+                        ...allowances,
+                        {
+                          name: allowanceName,
+                          amount: Number(allowanceAmount),
+                        },
+                      ]);
+                      setAllowanceName('');
+                      setAllowanceAmount('');
+                    }
+                  }}
+                  className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                >
+                  <span className="material-symbols-outlined text-[16px]">
+                    add
+                  </span>
+                </button>
+              </div>
+            </div>
           </label>
 
           <label className="block space-y-1.5">
@@ -463,6 +714,26 @@ export const OfferListPage: React.FC = () => {
             Generate Offer Draft
           </button>
         </form>
+
+        <div className="mt-6 bg-slate-50 border border-slate-200 rounded-2xl p-5">
+          <h3 className="text-sm font-bold text-slate-900 mb-3">
+            Live Offer Preview
+          </h3>
+          <OfferPreview
+            template={selectedTemplate}
+            salary={form.salary || 0}
+            allowances={allowances.reduce(
+              (acc, item) => {
+                acc[item.name] = item.amount;
+                return acc;
+              },
+              {} as Record<string, number>,
+            )}
+            startDate={form.startDate}
+            expiryDate={form.expirationDate}
+            application={selectedApplication}
+          />
+        </div>
       </div>
     );
   }

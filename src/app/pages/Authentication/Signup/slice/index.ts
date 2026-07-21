@@ -10,6 +10,7 @@ import type {
 export const initialState: AuthenticationSignupState = {
   submitting: false,
   error: null,
+  signupSuccess: false,
 };
 
 const slice = createSlice({
@@ -27,10 +28,12 @@ const slice = createSlice({
     submitSignupSuccess(state) {
       state.submitting = false;
       state.error = null;
+      state.signupSuccess = true;
     },
     submitSignupFailure(state, action: PayloadAction<string>) {
       state.submitting = false;
       state.error = action.payload;
+      state.signupSuccess = false;
     },
     reset(state) {
       Object.assign(state, initialState);

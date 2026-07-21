@@ -222,7 +222,9 @@ export const VacancyHubListView: React.FC<VacancyHubListViewProps> = ({
                   ) : (
                     paginatedVacancies.map((vac) => {
                       const funnel = getHiringFunnel(applications, vac.id);
-                      const badge = vacancyStatusBadge(vac.vacancyStatus);
+                      const normalizedStatus = String(vac.vacancyStatus ?? '').toLowerCase();
+                      const effectiveStatus = (normalizedStatus === 'published' && funnel.total > 0) ? 'in_progress' : normalizedStatus;
+                      const badge = vacancyStatusBadge(effectiveStatus as VacancyStatus);
                       const daysRemaining = Math.ceil(
                         (new Date(vac.closingDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
                       );

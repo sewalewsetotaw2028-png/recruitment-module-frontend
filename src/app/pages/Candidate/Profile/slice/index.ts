@@ -2,6 +2,7 @@ import { type PayloadAction, createSlice } from '@reduxjs/toolkit';
 import { useInjectReducer, useInjectSaga } from 'redux-injectors';
 import { candidateProfileSaga } from './saga';
 import type { CandidateProfileState } from './types';
+import type { ExtractedProfile } from '../utils/cvExtractor';
 import type {
   CandidateProfileData,
   Education,
@@ -172,6 +173,70 @@ const slice = createSlice({
       state.loading = true;
       state.actionError = null;
       state.actionSuccess = null;
+    },
+    // Auto-fill profile from extracted CV data — updates fields that are empty/default only
+    autoFillFromCv(state, action: PayloadAction<ExtractedProfile>) {
+      if (!state.profile) return;
+      const p = action.payload;
+      // Personal details — only fill if field is currently empty
+      if (p.firstName && !state.profile.firstName) state.profile.firstName = p.firstName;
+      if (p.lastName && !state.profile.lastName) state.profile.lastName = p.lastName;
+      if (p.email && !state.profile.email) state.profile.email = p.email;
+      if (p.gender && !state.profile.gender) state.profile.gender = p.gender;
+      if (p.dateOfBirth && !state.profile.date_of_birth) state.profile.date_of_birth = p.dateOfBirth;
+      if (p.nationality && !state.profile.nationality) state.profile.nationality = p.nationality;
+      if (p.currentAddress && !state.profile.current_address) state.profile.current_address = p.currentAddress;
+      if (p.currentEmployer && !state.profile.current_employer) state.profile.current_employer = p.currentEmployer;
+      if (p.currentPosition && !state.profile.current_position) state.profile.current_position = p.currentPosition;
+      if (p.yearsOfExperience && !state.profile.years_of_experience) state.profile.years_of_experience = p.yearsOfExperience;
+      if (p.expectedSalary && !state.profile.expected_salary) state.profile.expected_salary = p.expectedSalary;
+      if (p.preferredLocation && !state.profile.preferred_location) state.profile.preferred_location = p.preferredLocation;
+      if (p.preferredJobCategory && !state.profile.preferred_job_category) state.profile.preferred_job_category = p.preferredJobCategory;
+      if (p.availabilityStatus && !state.profile.availability_status) state.profile.availability_status = p.availabilityStatus;
+      if (p.summary && !state.profile.remarks) state.profile.remarks = p.summary;
+      if (p.portfolioUrl && !state.profile.portfolio_url) state.profile.portfolio_url = p.portfolioUrl;
+      // Skills — merge without duplicates
+      if (p.skills?.length) {
+        const existing = new Set((state.profile.skills || []).map((s: string) => s.toLowerCase()));
+        const newSkills = p.skills.filter((s) => !existing.has(s.toLowerCase()));
+        state.profile.skills = [...(state.profile.skills || []), ...newSkills];
+      }
+      // Languages — merge without duplicates
+      if (p.languages?.length) {
+        const existing = new Set((state.profile.languages || []).map((l: string) => l.toLowerCase()));
+        const newLangs = p.languages.filter((l) => !existing.has(l.toLowerCase()));
+        state.profile.languages = [...(state.profile.languages || []), ...newLangs];
+      }
+      // Experience — only prefill if currently empty
+      if (p.experiences?.length && !state.profile.experiences?.length) {
+        state.profile.experiences = p.experiences.map((e, i) => ({
+          id: `cv-extract-${i}`,
+          companyName: e.companyName,
+          position: e.position,
+          startDate: e.startDate,
+          endDate: e.endDate,
+          description: e.description,
+        }));
+      }
+      // Education — only prefill if currently empty
+      if (p.educations?.length && !state.profile.educations?.length) {
+        state.profile.educations = p.educations.map((e, i) => ({
+          id: `cv-edu-${i}`,
+          institution: e.institution,
+          degree: e.degree,
+          fieldOfStudy: e.fieldOfStudy,
+          graduationYear: e.graduationYear || 0,
+        }));
+      }
+      // Certifications — only prefill if currently empty
+      if (p.certifications?.length && !state.profile.certifications?.length) {
+        state.profile.certifications = p.certifications.map((c, i) => ({
+          id: `cv-cert-${i}`,
+          name: c.name,
+          issuing_organization: c.issuingOrganization,
+        }));
+      }
+      // Don't set actionSuccess here — the parent toasts directly after applying
     },
     uploadAvatarRequest(state, _action: PayloadAction<FormData>) {
       state.loading = true;

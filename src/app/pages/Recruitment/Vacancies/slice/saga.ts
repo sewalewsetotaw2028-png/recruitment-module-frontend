@@ -1,6 +1,5 @@
 import { call, put, takeLatest } from 'redux-saga/effects';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import type { SagaIterator } from 'redux-saga';
 import { getErrorMessage } from '@/utils/apiMappers';
 import type { Vacancy } from '@/types';
 import { vacanciesActions } from './index';
@@ -18,7 +17,7 @@ import {
   updateVacancy,
 } from '../api';
 
-function* fetchVacanciesSaga(): SagaIterator {
+function* fetchVacanciesSaga(): Generator {
   try {
     const vacancies = yield call(fetchVacancies);
     yield put(vacanciesActions.fetchVacanciesSuccess(vacancies as any));
@@ -31,10 +30,9 @@ function* fetchVacanciesSaga(): SagaIterator {
   }
 }
 
-function* createVacancySaga(action: PayloadAction<Partial<Vacancy>>): SagaIterator {
+function* createVacancySaga(action: PayloadAction<Partial<Vacancy>>): Generator {
   try {
-    const recruitmentRequestId =
-      action.payload?.recruitmentRequestId || (action.payload as any)?.recruitment_request_id;
+    const recruitmentRequestId = action.payload?.recruitmentRequestId as string;
 
     // Manual drafts (no linked request) cannot be persisted to the backend
     // because the backend requires a valid recruitment_request_id.
@@ -58,7 +56,7 @@ function* createVacancySaga(action: PayloadAction<Partial<Vacancy>>): SagaIterat
 
 function* updateVacancySaga(
   action: PayloadAction<{ vacancyId: string; payload: Partial<Vacancy> }>,
-): SagaIterator {
+): Generator {
   try {
     const vacancy = yield call(
       updateVacancy,
@@ -75,7 +73,7 @@ function* updateVacancySaga(
   }
 }
 
-function* postVacancySaga(action: PayloadAction<string>): SagaIterator {
+function* postVacancySaga(action: PayloadAction<string>): Generator {
   try {
     yield call(postVacancy, action.payload);
     yield put(vacanciesActions.postVacancySuccess('Vacancy published.'));
@@ -89,7 +87,7 @@ function* postVacancySaga(action: PayloadAction<string>): SagaIterator {
   }
 }
 
-function* unpostVacancySaga(action: PayloadAction<string>): SagaIterator {
+function* unpostVacancySaga(action: PayloadAction<string>): Generator {
   try {
     yield call(unpostVacancy, action.payload);
     yield put(vacanciesActions.unpostVacancySuccess('Vacancy unpublished.'));
@@ -103,7 +101,7 @@ function* unpostVacancySaga(action: PayloadAction<string>): SagaIterator {
   }
 }
 
-function* closeVacancySaga(action: PayloadAction<string>): SagaIterator {
+function* closeVacancySaga(action: PayloadAction<string>): Generator {
   try {
     yield call(closeVacancy, action.payload);
     yield put(vacanciesActions.closeVacancySuccess('Vacancy closed.'));
@@ -119,7 +117,7 @@ function* closeVacancySaga(action: PayloadAction<string>): SagaIterator {
 
 function* approveVacancyPostingSaga(
   action: PayloadAction<{ vacancyId: string; notes?: string }>,
-): SagaIterator {
+): Generator {
   try {
     yield call(
       approveVacancyPosting,
@@ -143,7 +141,7 @@ function* approveVacancyPostingSaga(
 
 function* rejectVacancyPostingSaga(
   action: PayloadAction<{ vacancyId: string; reason: string }>,
-): SagaIterator {
+): Generator {
   try {
     yield call(
       rejectVacancyPosting,
@@ -165,7 +163,7 @@ function* rejectVacancyPostingSaga(
   }
 }
 
-function* holdVacancySaga(action: PayloadAction<string>): SagaIterator {
+function* holdVacancySaga(action: PayloadAction<string>): Generator {
   try {
     const vacancy = yield call(holdVacancy, action.payload);
     yield put(vacanciesActions.holdVacancySuccess(vacancy as any));
@@ -178,7 +176,7 @@ function* holdVacancySaga(action: PayloadAction<string>): SagaIterator {
   }
 }
 
-function* resumeVacancySaga(action: PayloadAction<string>): SagaIterator {
+function* resumeVacancySaga(action: PayloadAction<string>): Generator {
   try {
     const vacancy = yield call(resumeVacancy, action.payload);
     yield put(vacanciesActions.resumeVacancySuccess(vacancy as any));
@@ -193,7 +191,7 @@ function* resumeVacancySaga(action: PayloadAction<string>): SagaIterator {
 
 function* setVacancyStatusSaga(
   action: PayloadAction<{ vacancyId: string; status: string }>,
-): SagaIterator {
+): Generator {
   try {
     const vacancy = yield call(
       setVacancyStatus,
@@ -210,7 +208,7 @@ function* setVacancyStatusSaga(
   }
 }
 
-export function* vacanciesSaga(): SagaIterator {
+export function* vacanciesSaga() {
   yield takeLatest(vacanciesActions.fetchVacanciesRequest.type, fetchVacanciesSaga);
   yield takeLatest(vacanciesActions.createVacancyRequest.type, createVacancySaga);
   yield takeLatest(vacanciesActions.updateVacancyRequest.type, updateVacancySaga);

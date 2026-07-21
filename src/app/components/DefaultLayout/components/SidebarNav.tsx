@@ -12,7 +12,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ onNavClick }) => {
   const { navItems, role } = useSession();
 
   return (
-    <nav className="custom-scrollbar flex-1 space-y-1 overflow-y-auto px-3 py-4">
+    <nav className="custom-scrollbar flex-1 space-y-1 overflow-y-auto px-3 py-2">
       <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
         Menu
       </p>

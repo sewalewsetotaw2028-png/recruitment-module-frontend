@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { call, put, select, takeLatest } from 'redux-saga/effects';
 
 import makeCall from '@/API';

@@ -69,6 +69,19 @@ const slice = createSlice({
       state.actionLoading = false;
       state.actionError = action.payload;
     },
+    markInterviewCompletedRequest(state, _action: PayloadAction<string>) {
+      state.actionLoading = true;
+      state.actionSuccess = null;
+      state.actionError = null;
+    },
+    markInterviewCompletedSuccess(state, action: PayloadAction<string>) {
+      state.actionLoading = false;
+      state.actionSuccess = action.payload;
+    },
+    markInterviewCompletedFailure(state, action: PayloadAction<string>) {
+      state.actionLoading = false;
+      state.actionError = action.payload;
+    },
     clearActionState(state) {
       state.actionSuccess = null;
       state.actionError = null;

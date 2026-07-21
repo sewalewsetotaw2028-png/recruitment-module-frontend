@@ -1,4 +1,4 @@
-import type { PostingChannel } from '../types';
+import type { PostingChannel, JobPostingChannelState } from '@/types';
 
 /** BRD FR-19 — Internal and external posting channels */
 export const POSTING_CHANNELS: PostingChannel[] = [
@@ -44,9 +44,11 @@ export const POSTING_CHANNELS: PostingChannel[] = [
   },
 ];
 
-export const defaultChannelStates = (enabledSlugs: string[] = ['internal_portal', 'company_website']) =>
+export const defaultChannelStates = (enabledSlugs: string[] = ['internal_portal', 'company_website']): JobPostingChannelState[] =>
   POSTING_CHANNELS.map((ch) => ({
     channelSlug: ch.slug,
+    channelId: ch.id,
+    channelName: ch.name,
     enabled: enabledSlugs.includes(ch.slug),
     syncStatus: enabledSlugs.includes(ch.slug)
       ? ('pending' as const)

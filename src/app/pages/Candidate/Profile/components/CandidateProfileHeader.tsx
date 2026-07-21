@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useRef, useState } from 'react';
 import type {
   CandidateProfileData,
@@ -176,8 +175,9 @@ export const CandidateProfileHeader: React.FC<CandidateProfileHeaderProps> = ({
 
           {/* Camera icon to upload photo */}
           <div
-            onClick={() => avatarInputRef.current?.click()}
-            disabled={uploading}
+            onClick={() => {
+              if (!uploading) avatarInputRef.current?.click();
+            }}
             aria-label="Upload profile photo"
             style={{
               position: 'absolute',
@@ -214,6 +214,8 @@ export const CandidateProfileHeader: React.FC<CandidateProfileHeaderProps> = ({
             <div
               onClick={() => setShowRemoveConfirm(true)}
               aria-label="Remove profile photo"
+              role="button"
+              tabIndex={0}
               style={{
                 position: 'absolute',
                 left: '0',

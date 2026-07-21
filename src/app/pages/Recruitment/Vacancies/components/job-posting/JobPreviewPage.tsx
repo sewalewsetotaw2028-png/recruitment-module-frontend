@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import type { JobPosting, Vacancy } from '@/types';
 import {
   formatEmploymentType,
   daysUntilClosing,
   linesToListItems,
 } from '@/utils/jobPosting';
+import { fetchCompanyProfile } from '@/hooks/useCompanyProfile';
 
 interface JobPreviewPageProps {
   vacancy: Vacancy;
@@ -26,6 +27,20 @@ export const JobPreviewPage: React.FC<JobPreviewPageProps> = ({
   onEdit,
   onContinueToPosting,
 }) => {
+  const [companyProfile, setCompanyProfile] = useState<any>(null);
+
+  useEffect(() => {
+    const loadCompanyProfile = async () => {
+      try {
+        const profile = await fetchCompanyProfile();
+        setCompanyProfile(profile);
+      } catch (error) {
+        console.error('Failed to load company profile:', error);
+      }
+    };
+    void loadCompanyProfile();
+  }, []);
+
   const closingDateRaw = posting?.closingDate || vacancy.closingDate;
   const daysLeft = daysUntilClosing(closingDateRaw);
 
@@ -170,6 +185,20 @@ export const JobPreviewPage: React.FC<JobPreviewPageProps> = ({
           )}
 
           {/* Core Content Block Sections */}
+          {/* Company Description Section */}
+          {companyProfile?.description && (
+            <section className="space-y-3">
+              <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-l-4 border-indigo-600 pl-2.5">
+                  About {companyProfile.name || 'Our Company'}
+                </h2>
+              </div>
+              <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-line font-normal px-1">
+                {companyProfile.description}
+              </p>
+            </section>
+          )}
+
           <section className="space-y-3">
             <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
               <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-l-4 border-indigo-600 pl-2.5">

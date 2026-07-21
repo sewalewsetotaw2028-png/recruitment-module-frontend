@@ -32,9 +32,9 @@ function* updateApplicationStatusSaga(
   action:
     | ReturnType<typeof screeningActions.shortlistApplicationRequest>
     | ReturnType<typeof screeningActions.rejectApplicationRequest>,
-) {
+): Generator {
   try {
-    const payload = action.payload as unknown as {
+    const payload = (action.payload as unknown) as {
       applicationId: string;
       status: string;
       currentStage?: string;

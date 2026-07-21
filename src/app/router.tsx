@@ -12,6 +12,10 @@ import { ProtectedRoute } from '@/routes/ProtectedRoute';
 import { RoleGuard } from '@/routes/RoleGuard';
 import { LoginPage } from './pages/Authentication/Login';
 import { SignupPage } from './pages/Authentication/Signup';
+import { VerifyEmailPage } from './pages/Authentication/VerifyEmail';
+import { EmailVerificationPending } from './components/auth/EmailVerificationPending';
+import { MagicLinkRequest } from './components/auth/MagicLinkRequest';
+import { MagicLinkCallbackPage } from './pages/Authentication/MagicLinkCallback';
 import { DashboardHomePage } from './pages/Recruitment/Dashboard';
 import { WorkforcePlanningListPage } from './pages/Recruitment/WorkforcePlanning';
 import { WorkforcePlanningCreatePage } from './pages/Recruitment/WorkforcePlanningCreate';
@@ -26,6 +30,7 @@ import { CandidateApplicationsPage } from './pages/Candidate/Applications';
 import { CandidateJobSearchPage } from './pages/Candidate/JobSearch';
 import { CandidateProfilePage } from './pages/Candidate/Profile';
 import { HRSettingsPage } from './pages/Recruitment/Settings';
+import { StaffNotificationsPage } from './pages/Recruitment/Notifications';
 import { CandidateOffersPage } from './pages/Candidate/Offers';
 import { CandidateInterviewsPage } from './pages/Candidate/Interviews';
 import { CandidateSettingsPage } from './pages/Candidate/Settings';
@@ -59,7 +64,7 @@ const LoadingScreen = () => (
 );
 
 export const AppRouter: React.FC = () => {
-  const { user, loading, isAuthenticated } = useSession();
+  const { user, loading } = useSession();
 
   if (loading) return <LoadingScreen />;
 
@@ -67,9 +72,21 @@ export const AppRouter: React.FC = () => {
     <Router>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/login/magic-link" element={<MagicLinkRequest />} />
+        <Route path="/login/magic-link/callback" element={<MagicLinkCallbackPage />} />
         <Route
           path="/signup"
-          element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <SignupPage />}
+          element={user ? <Navigate to="/dashboard" replace /> : <SignupPage />}
+        />
+        <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
+        <Route
+          path="/verify-email/pending"
+          element={
+            <EmailVerificationPending
+              email={new URLSearchParams(window.location.search).get('email') || ''}
+              userType="user"
+            />
+          }
         />
 
         <Route
@@ -130,6 +147,7 @@ export const AppRouter: React.FC = () => {
             />
             <Route path="job-search" element={<CandidateJobSearchPage />} />
             <Route path="profile" element={<CandidateProfilePage />} />
+            <Route path="notifications" element={<StaffNotificationsPage />} />
             <Route path="settings" element={<HRSettingsPage />} />
             <Route path="candidate-offers" element={<CandidateOffersPage />} />
             <Route path="candidate-interviews" element={<CandidateInterviewsPage />} />
@@ -196,11 +214,11 @@ export const AppRouter: React.FC = () => {
 
         <Route
           path="/"
-          element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />}
+          element={<Navigate to={user ? "/dashboard" : "/login"} replace />}
         />
         <Route
           path="*"
-          element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />}
+          element={<Navigate to={user ? "/dashboard" : "/login"} replace />}
         />
       </Routes>
     </Router>

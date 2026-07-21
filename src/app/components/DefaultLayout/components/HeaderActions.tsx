@@ -5,23 +5,25 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/components/common';
 import { useSession } from '@/hooks/useSession';
 import { PERMISSIONS } from '@/lib/permissions-shared';
+import { useNotifications } from '@/hooks/useNotifications';
 
-interface HeaderActionsProps {
-  onNotificationsClick: () => void;
-}
-
-export const HeaderActions: React.FC<HeaderActionsProps> = ({
-  onNotificationsClick,
-}) => {
+export const HeaderActions: React.FC = () => {
   const navigate = useNavigate();
   const { setActiveTab } = useApp();
   const { toast } = useToast();
   const { role } = useSession();
   const { can } = usePermissions();
+  const { unreadCount, startPolling, stopPolling } = useNotifications(role === 'candidate');
 
   const canSeeSettings =
     role === 'recruiter' || role === 'hr' || role === 'hr_admin';
   const canSeeConfiguration = can(PERMISSIONS.CONFIG_MANAGE);
+
+  // Poll every 8 seconds for near-real-time badge updates
+  React.useEffect(() => {
+    startPolling(8000);
+    return () => stopPolling();
+  }, [startPolling, stopPolling]);
 
   const goTo = (path: string, tab: string) => {
     setActiveTab(tab);
@@ -35,7 +37,7 @@ export const HeaderActions: React.FC<HeaderActionsProps> = ({
           <button
             type="button"
             onClick={() => goTo('/dashboard/settings', 'settings')}
-            className="hidden rounded-lg  px-3 py-2 text-white shadow-sm transition-all hover:bg-slate-200 md:flex"
+            className="hidden rounded-lg px-3 py-2 text-white shadow-sm transition-all hover:bg-slate-200 md:flex"
             aria-label="Settings"
           >
             <span className="material-symbols-outlined">settings</span>
@@ -53,26 +55,46 @@ export const HeaderActions: React.FC<HeaderActionsProps> = ({
         )}
         <button
           type="button"
-          onClick={onNotificationsClick}
-          className="icon-btn relative text-slate-700"
+          onClick={() => {
+            if (role === 'candidate') {
+              setActiveTab('notifications');
+              navigate('/dashboard/candidate-notifications');
+            } else {
+              navigate('/dashboard/notifications');
+            }
+          }}
+          className="icon-btn relative text-slate-700 transition-all hover:text-indigo-600"
           aria-label="Notifications"
         >
-          <span className="material-symbols-outlined">notifications</span>
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-error rounded-full border-2 border-white" />
+          <span className={`material-symbols-outlined transition-all ${
+            unreadCount > 0
+              ? 'text-indigo-600' 
+              : 'text-slate-500'
+          }`}>
+            {unreadCount > 0 ? 'notifications_active' : 'notifications'}
+          </span>
+          {/* Always show badge — red with count when >0, subdued with "0" when none */}
+          <span className={`absolute -top-0.5 -right-0.5 flex min-w-[18px] h-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none shadow-sm transition-all ${
+            unreadCount > 0
+              ? 'bg-red-500 text-white'
+              : 'bg-slate-200 text-slate-400'
+          }`}>
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
         </button>
-          <button
-            type="button"
-            onClick={() =>
-              toast(
-                'Adiu Help: contact support@adiu.et or +251 11 000 0000.',
-                'info',
-              )
-            }
-            className="icon-btn hidden text-slate-700 sm:flex"
-            aria-label="Help"
-          >
-            <span className="material-symbols-outlined">help</span>
-          </button>
+        <button
+          type="button"
+          onClick={() =>
+            toast(
+              'Adiu Help: contact support@adiu.et or +251 11 000 0000.',
+              'info',
+            )
+          }
+          className="icon-btn hidden text-slate-700 sm:flex"
+          aria-label="Help"
+        >
+          <span className="material-symbols-outlined">help</span>
+        </button>
       </div>
     </div>
   );

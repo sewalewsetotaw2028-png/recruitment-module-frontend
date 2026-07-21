@@ -4,8 +4,8 @@ import type { User } from '@/types';
 import { PERMISSIONS } from '@/lib/permissions-shared';
 
 /** Map API / auth role string to app UserRole */
-export function normalizeAuthRole(role: unknown): UserRole {
-  if (typeof role !== 'string' || !role) return 'candidate';
+export function normalizeAuthRole(role: string | undefined): UserRole {
+  if (!role) return 'candidate';
   const normalized = role.toLowerCase().replace(/[- ]/g, '_');
   switch (normalized) {
     case 'candidate':

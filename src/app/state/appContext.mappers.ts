@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type {
   Application,
   Interview,
@@ -25,30 +24,35 @@ const mapApplicationStatusForUi = (
   switch (status) {
     case 'draft':
     case 'submitted':
-      return 'submitted';
+      return 'SUBMITTED';
     case 'under_screening':
     case 'screening':
-      return 'screening';
+      return 'UNDER_SCREENING';
     case 'shortlisted':
-      return 'shortlisted';
+      return 'SHORTLISTED';
     case 'interview_scheduled':
     case 'interview_completed':
+      return 'INTERVIEW_COMPLETED';
     case 'under_evaluation':
+      return 'UNDER_EVALUATION';
     case 'selected':
-      return 'interview';
+      return 'SELECTED';
     case 'offer_issued':
+      return 'OFFER_ISSUED';
     case 'offered':
-      return 'offered';
+      return 'OFFER_ISSUED';
     case 'offer_accepted':
+      return 'OFFER_ACCEPTED';
     case 'hired':
-      return 'hired';
+      return 'OFFER_ACCEPTED';
     case 'offer_declined':
+      return 'OFFER_DECLINED';
     case 'rejected':
-      return 'rejected';
+      return 'REJECTED';
     case 'moved_to_talent_roster':
-      return 'withdrawn';
+      return 'MOVED_TO_TALENT_ROSTER';
     default:
-      return 'submitted';
+      return 'SUBMITTED';
   }
 };
 
@@ -189,12 +193,20 @@ export const mapBackendRecruitmentRequest = (raw: any): RecruitmentRequest => {
     hrReviewedByName: raw.hr_reviewed_by_name || undefined,
     hrReviewDate: raw.hr_review_date || undefined,
     hrReviewNotes: (() => {
-      // hr_comments may contain a __doc:: tag prefix — strip it, return the rest
+      // hr_comments may contain a __doc:: tag prefix and/or __ceo_notes:: — strip both, return HR notes
       const raw_comments = raw.hr_comments || raw.hr_review_notes || '';
       if (!raw_comments) return undefined;
-      // Strip the doc tag line if present
-      const stripped = raw_comments.replace(/__doc::[^\n]*\n?/, '').trim();
+      const stripped = raw_comments
+        .replace(/__doc::[^\n]*\n?/, '')
+        .replace(/__ceo_notes::[^\n]*\n?/, '')
+        .trim();
       return stripped || undefined;
+    })(),
+    ceoApprovalNotes: (() => {
+      const raw_comments = raw.hr_comments || '';
+      if (!raw_comments) return undefined;
+      const match = raw_comments.match(/__ceo_notes::([^\n]+)/);
+      return match ? match[1].trim() : undefined;
     })(),
     approvedBy: raw.approved_by || undefined,
     approvedByName: raw.approved_by?.first_name
@@ -423,12 +435,6 @@ export const mapBackendWorkforcePlan = (raw: any): WorkforcePlan => {
       if (!fallback) return undefined;
       return String(fallback).split('/').pop() || fallback;
     })(),
-    supportingDocumentUrl: (() => {
-      const comments = raw.hrReviewNotes || raw.hr_comments || '';
-      const match = comments.match(/__doc::([^:]+(?::[^:]+)*)::(.+)/);
-      if (match) return match[1];
-      return raw.supportingDocumentName || undefined;
-    })() as any,
     status: (() => {
       const normalized = String(raw.status ?? '').toLowerCase();
       if (normalized === 'draft') return 'draft';

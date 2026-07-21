@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useCandidateProfileSlice } from './slice';
 import { candidateProfileActions } from './slice';
 import {
@@ -51,6 +50,9 @@ export const CandidateProfilePage: React.FC = () => {
   const actionSuccess = useAppSelector(selectCandidateProfileActionSuccess);
   const actionError = useAppSelector(selectCandidateProfileActionError);
 
+  // Hold extracted CV data until after the profile refetch completes, then apply it
+  const pendingCvExtract = React.useRef<import('./utils/cvExtractor').ExtractedProfile | null>(null);
+
   const [activeTab, setActiveTab] = useState<CandidateProfileTab>('overview');
 
   const [editingExperience, setEditingExperience] = useState<Experience | null>(
@@ -66,6 +68,22 @@ export const CandidateProfilePage: React.FC = () => {
   const [pendingDelete, setPendingDelete] = useState<PendingDeleteAction>(null);
 
   const stableDispatch = useAppDispatch();
+
+  // Track previous loading value to detect fetch completion
+  const prevLoadingRef = React.useRef(loading);
+  useEffect(() => {
+    // When loading just finished (true → false) and we have pending CV extract data,
+    // apply it now — AFTER the profile has been refreshed from backend
+    if (prevLoadingRef.current === true && loading === false && pendingCvExtract.current) {
+      const data = pendingCvExtract.current;
+      pendingCvExtract.current = null;
+      stableDispatch(candidateProfileActions.autoFillFromCv(data));
+      // Show toast directly — don't rely on actionSuccess which gets cleared by upload handler
+      toast('Profile auto-filled from CV. Review each section and save to persist changes.', 'success');
+    }
+    prevLoadingRef.current = loading;
+  }, [loading, stableDispatch]);
+
   useEffect(() => {
     if (isCandidateAccount) {
       stableDispatch(candidateProfileActions.fetchProfileRequest());
@@ -192,7 +210,7 @@ export const CandidateProfilePage: React.FC = () => {
 
     dispatch(
       candidateProfileActions.addEducationRequest({
-        education: newEducation,
+        payload: newEducation,
         file: educationFile,
       }),
     );
@@ -472,6 +490,10 @@ export const CandidateProfilePage: React.FC = () => {
             onUpload={handleUploadDocument}
             onDelete={handleDeleteDocument}
             uploading={loading}
+            onCvExtracted={(data) => {
+              // Queue the extracted data — will be applied after the profile refetch completes
+              pendingCvExtract.current = data;
+            }}
           />
         )}
       </div>

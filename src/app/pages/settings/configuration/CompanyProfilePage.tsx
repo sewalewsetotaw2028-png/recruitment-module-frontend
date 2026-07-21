@@ -64,6 +64,7 @@ export const CompanyProfilePage: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [website, setWebsite] = useState('');
+  const [description, setDescription] = useState('');
 
   const syncProfile = (data: CompanyProfile) => {
     setProfile(data);
@@ -77,6 +78,7 @@ export const CompanyProfilePage: React.FC = () => {
     setPhone(data.phone || '');
     setAddress(data.address || '');
     setWebsite(data.website || '');
+    setDescription(data.description || '');
   };
 
   const applyThemeFromProfile = (data: CompanyProfile) => {
@@ -126,6 +128,7 @@ export const CompanyProfilePage: React.FC = () => {
         phone: phone || undefined,
         address: address || undefined,
         website: website || undefined,
+        description: description || undefined,
       });
       syncProfile(updated);
       applyThemeFromProfile(updated);
@@ -320,6 +323,18 @@ export const CompanyProfilePage: React.FC = () => {
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 placeholder-slate-400 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all"
                   />
                 </div>
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-700 uppercase tracking-wide mb-1.5">
+                    Website
+                  </label>
+                  <input
+                    type="url"
+                    value={website}
+                    onChange={(e) => setWebsite(e.target.value)}
+                    placeholder="https://example.com"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 placeholder-slate-400 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all"
+                  />
+                </div>
                 <div className="md:col-span-2">
                   <label className="block text-[10px] font-extrabold text-slate-700 uppercase tracking-wide mb-1.5">
                     Address
@@ -334,14 +349,14 @@ export const CompanyProfilePage: React.FC = () => {
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-[10px] font-extrabold text-slate-700 uppercase tracking-wide mb-1.5">
-                    Website
+                    Company Description
                   </label>
-                  <input
-                    type="url"
-                    value={website}
-                    onChange={(e) => setWebsite(e.target.value)}
-                    placeholder="https://example.com"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 placeholder-slate-400 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all"
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    rows={4}
+                    placeholder="Brief description of your company..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 placeholder-slate-400 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all resize-none"
                   />
                 </div>
               </div>

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useInterviewsSlice, interviewsActions } from './slice';
 import { useShortlistedSlice, shortlistedActions } from '../Shortlisted/slice';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -97,9 +96,15 @@ interface InterviewCardProps {
   interview: Interview;
   canEvaluate: boolean;
   canUpdate: boolean;
-  onEvaluate: (id: string) => void;
-  onReschedule: (payload: { interviewId: string; startTime: string; endTime: string; reason: string }) => void;
-  onCancel: (interviewId: string) => void;
+  onEvaluate?: (id: string) => void;
+  onReschedule?: (payload: {
+    interviewId: string;
+    startTime: string;
+    endTime: string;
+    reason: string;
+  }) => void;
+  onCancel?: (interviewId: string) => void;
+  onMarkCompleted?: (interviewId: string) => void;
 }
 
 const InterviewCard: React.FC<InterviewCardProps> = ({
@@ -109,6 +114,7 @@ const InterviewCard: React.FC<InterviewCardProps> = ({
   onEvaluate,
   onReschedule,
   onCancel,
+  onMarkCompleted,
 }) => {
   const statusKey = int.interviewStatus?.toLowerCase() ?? 'scheduled';
   const status = STATUS_CONFIG[statusKey] ?? STATUS_CONFIG.scheduled;
@@ -117,6 +123,7 @@ const InterviewCard: React.FC<InterviewCardProps> = ({
   const isEvaluable = (statusKey === 'completed' || statusKey === 'evaluation_pending' || statusKey === 'finalized') && canEvaluate;
   const isReschedulable = (statusKey === 'scheduled' || statusKey === 'rescheduled') && canUpdate;
   const isCancellable = (statusKey === 'scheduled' || statusKey === 'rescheduled') && canUpdate;
+  const isCompletable = (statusKey === 'scheduled' || statusKey === 'rescheduled') && canUpdate;
 
   const [showRescheduleForm, setShowRescheduleForm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -138,7 +145,12 @@ const InterviewCard: React.FC<InterviewCardProps> = ({
     const pad = (n: number) => String(n).padStart(2, '0');
     const startTime = `${rescheduleDate}T${rescheduleTime}:00+03:00`;
     const endTime = `${endDate.getFullYear()}-${pad(endDate.getMonth() + 1)}-${pad(endDate.getDate())}T${pad(endDate.getHours())}:${pad(endDate.getMinutes())}:00+03:00`;
-    onReschedule({ interviewId: int.id, startTime, endTime, reason: rescheduleReason.trim() });
+    onReschedule?.({
+      interviewId: int.id,
+      startTime,
+      endTime,
+      reason: rescheduleReason.trim(),
+    });
     setShowRescheduleForm(false);
     setRescheduleReason('');
   };
@@ -293,7 +305,7 @@ const InterviewCard: React.FC<InterviewCardProps> = ({
         {isEvaluable && (
           <button
             type="button"
-            onClick={() => onEvaluate(int.id)}
+            onClick={() => onEvaluate?.(int.id)}
             className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors"
           >
             <span className="material-symbols-outlined text-[13px]">
@@ -321,6 +333,18 @@ const InterviewCard: React.FC<InterviewCardProps> = ({
           >
             <span className="material-symbols-outlined text-[13px]">update</span>
             Reschedule
+          </button>
+        )}
+
+        {/* Mark as Completed button */}
+        {isCompletable && onMarkCompleted && (
+          <button
+            type="button"
+            onClick={() => onMarkCompleted(int.id)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold rounded-lg transition-colors"
+          >
+            <span className="material-symbols-outlined text-[13px]">check_circle</span>
+            Mark as Completed
           </button>
         )}
 
@@ -396,7 +420,7 @@ const InterviewCard: React.FC<InterviewCardProps> = ({
                 className="px-3 py-1.5 text-xs border border-slate-200 bg-white text-slate-600 rounded-lg hover:bg-slate-50 transition-colors font-semibold">
                 Keep Interview
               </button>
-              <button type="button" onClick={() => { onCancel(int.id); setShowCancelConfirm(false); }}
+              <button type="button" onClick={() => { onCancel?.(int.id); setShowCancelConfirm(false); }}
                 className="px-3 py-1.5 text-xs bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold">
                 Confirm Cancel
               </button>
@@ -425,6 +449,9 @@ export const InterviewListPage: React.FC = () => {
   const [evaluatingInterviewId, setEvaluatingInterviewId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentViewMode, setCurrentViewMode] = useState<'scheduler' | 'evaluator' | 'readonly'>('scheduler');
+  const [upcomingPage, setUpcomingPage] = useState(1);
+  const [pastPage, setPastPage] = useState(1);
+  const pageSize = 6;
 
   const interviews = useAppSelector(selectInterviews);
   const loading = useAppSelector(selectInterviewsLoading);
@@ -462,7 +489,7 @@ export const InterviewListPage: React.FC = () => {
   const isHRUser = can(PERMISSIONS.INTERVIEW_CREATE);
   const canEvaluate = can(PERMISSIONS.INTERVIEW_EVALUATE);
   const canUpdate = can(PERMISSIONS.INTERVIEW_UPDATE);
-  const canReadAll = can(PERMISSIONS.VIEW_INTERVIEWS) || can(PERMISSIONS.INTERVIEW_READ);
+  const canReadAll = can(PERMISSIONS.INTERVIEW_READ);
   const isInterviewPanelMember = can(PERMISSIONS.MY_INTERVIEW_READ);
 
   // Determine user's assigned interviews
@@ -602,6 +629,10 @@ export const InterviewListPage: React.FC = () => {
 
   const handleCancel = (interviewId: string) => {
     dispatch(interviewsActions.cancelInterviewRequest(interviewId));
+  };
+
+  const handleMarkCompleted = (interviewId: string) => {
+    dispatch(interviewsActions.markInterviewCompletedRequest(interviewId));
   };
 
   const pageHeading = useMemo(() => {
@@ -804,6 +835,11 @@ export const InterviewListPage: React.FC = () => {
                       new Date(i.scheduledStart) < new Date(new Date().setHours(0, 0, 0, 0))
                     );
                   });
+                  
+                  const upcomingTotalPages = Math.max(1, Math.ceil(upcoming.length / pageSize));
+                  const upcomingPaged = upcoming.slice((upcomingPage - 1) * pageSize, upcomingPage * pageSize);
+                  const pastTotalPages = Math.max(1, Math.ceil(past.length / pageSize));
+                  const pastPaged = past.slice((pastPage - 1) * pageSize, pastPage * pageSize);
                   return (
                     <>
                       {upcoming.length > 0 && (
@@ -812,18 +848,42 @@ export const InterviewListPage: React.FC = () => {
                             Upcoming · {upcoming.length}
                           </p>
                           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                            {upcoming.map((int) => (
+                            {upcomingPaged.map((int) => (
                               <InterviewCard
                                 key={int.id}
                                 interview={int}
                                 canEvaluate={can(PERMISSIONS.INTERVIEW_EVALUATE)}
                                 canUpdate={canUpdate}
-                                onEvaluate={setEvaluatingInterviewId}
-                                onReschedule={handleReschedule}
-                                onCancel={handleCancel}
+                                onEvaluate={can(PERMISSIONS.INTERVIEW_EVALUATE) ? setEvaluatingInterviewId : undefined}
+                                onReschedule={canUpdate ? handleReschedule : undefined}
+                                onCancel={canUpdate ? handleCancel : undefined}
+
                               />
                             ))}
                           </div>
+                          {upcomingTotalPages > 1 && (
+                            <div className="flex items-center justify-center gap-2 mt-4">
+                              <button
+                                type="button"
+                                onClick={() => setUpcomingPage(p => Math.max(1, p - 1))}
+                                disabled={upcomingPage === 1}
+                                className="px-3 py-1.5 text-xs font-semibold border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                Previous
+                              </button>
+                              <span className="text-xs text-slate-600">
+                                Page {upcomingPage} of {upcomingTotalPages}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setUpcomingPage(p => Math.min(upcomingTotalPages, p + 1))}
+                                disabled={upcomingPage === upcomingTotalPages}
+                                className="px-3 py-1.5 text-xs font-semibold border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                Next
+                              </button>
+                            </div>
+                          )}
                         </div>
                       )}
                       {past.length > 0 && (
@@ -832,18 +892,42 @@ export const InterviewListPage: React.FC = () => {
                             Past · {past.length}
                           </p>
                           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                            {past.map((int) => (
+                            {pastPaged.map((int) => (
                               <InterviewCard
                                 key={int.id}
                                 interview={int}
                                 canEvaluate={can(PERMISSIONS.INTERVIEW_EVALUATE)}
                                 canUpdate={canUpdate}
-                                onEvaluate={setEvaluatingInterviewId}
-                                onReschedule={handleReschedule}
-                                onCancel={handleCancel}
+                                onEvaluate={can(PERMISSIONS.INTERVIEW_EVALUATE) ? setEvaluatingInterviewId : undefined}
+                                onReschedule={canUpdate ? handleReschedule : undefined}
+                                onCancel={canUpdate ? handleCancel : undefined}
+
                               />
                             ))}
                           </div>
+                          {pastTotalPages > 1 && (
+                            <div className="flex items-center justify-center gap-2 mt-4">
+                              <button
+                                type="button"
+                                onClick={() => setPastPage(p => Math.max(1, p - 1))}
+                                disabled={pastPage === 1}
+                                className="px-3 py-1.5 text-xs font-semibold border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                Previous
+                              </button>
+                              <span className="text-xs text-slate-600">
+                                Page {pastPage} of {pastTotalPages}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setPastPage(p => Math.min(pastTotalPages, p + 1))}
+                                disabled={pastPage === pastTotalPages}
+                                className="px-3 py-1.5 text-xs font-semibold border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                Next
+                              </button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </>

@@ -20,6 +20,7 @@ export interface CompanyProfile {
   phone: string | null;
   address: string | null;
   website: string | null;
+  description: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -35,6 +36,7 @@ export interface UpdateCompanyProfilePayload {
   phone?: string;
   address?: string;
   website?: string;
+  description?: string;
 }
 
 export async function fetchCompanyProfile(): Promise<CompanyProfile> {

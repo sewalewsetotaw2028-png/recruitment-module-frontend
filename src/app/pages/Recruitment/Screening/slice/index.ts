@@ -2,6 +2,18 @@ import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import { useInjectReducer, useInjectSaga } from 'redux-injectors';
 import { screeningSaga } from './saga';
 import type { ScreeningState } from './types';
+import type { ScreeningCriterionResult } from '../api';
+
+type UpdateApplicationStatusPayload = {
+  applicationId: string;
+  status: string;
+  currentStage?: string;
+  notes?: string;
+  rejectionReason?: string;
+  addToTalentRoster?: boolean;
+  futureFitTag?: string;
+  screeningCriteria?: ScreeningCriterionResult[];
+};
 
 export const initialState: ScreeningState = {
   loading: false,
@@ -30,7 +42,10 @@ const slice = createSlice({
       state.loading = false;
       state.error = action.payload;
     },
-    shortlistApplicationRequest(state) {
+    shortlistApplicationRequest(
+      state,
+      _action: PayloadAction<UpdateApplicationStatusPayload>,
+    ) {
       state.actionLoading = true;
       state.actionError = null;
       state.actionSuccess = null;
@@ -46,7 +61,10 @@ const slice = createSlice({
       state.actionLoading = false;
       state.actionError = action.payload;
     },
-    rejectApplicationRequest(state) {
+    rejectApplicationRequest(
+      state,
+      _action: PayloadAction<UpdateApplicationStatusPayload>,
+    ) {
       state.actionLoading = true;
       state.actionError = null;
       state.actionSuccess = null;

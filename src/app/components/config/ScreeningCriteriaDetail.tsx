@@ -1,13 +1,136 @@
-// @ts-nocheck
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   createEmptyScreeningCriterion,
   SCREENING_CRITERIA_FIELDS,
   SCREENING_CRITERIA_OPERATOR_OPTIONS,
   SCREENING_CRITERIA_VALUE_PLACEHOLDERS,
   SCREENING_CRITERIA_VALUE_OPTIONS,
+  COMMON_SKILLS,
   type ScreeningCriterion,
 } from '@/hooks/useScreeningCriteria';
+
+// ---------- Technical Skills searchable multi-select with free-add ----------
+interface TechPickerProps {
+  index: number;
+  value: string[];
+  onChange: (skills: string[]) => void;
+  disabled: boolean;
+}
+
+const TechnicalSkillsPicker: React.FC<TechPickerProps> = ({ index, value, onChange, disabled }) => {
+  const [search, setSearch] = useState('');
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return [...COMMON_SKILLS].slice(0, 40);
+    return [...COMMON_SKILLS].filter((s) => s.toLowerCase().includes(q)).slice(0, 40);
+  }, [search]);
+
+  const notInList = search.trim() && !COMMON_SKILLS.some(
+    (s) => s.toLowerCase() === search.trim().toLowerCase()
+  );
+
+  const toggle = (skill: string) => {
+    const trimmed = skill.trim();
+    if (!trimmed) return;
+    const already = value.some((s) => s.toLowerCase() === trimmed.toLowerCase());
+    onChange(already ? value.filter((s) => s.toLowerCase() !== trimmed.toLowerCase()) : [...value, trimmed]);
+  };
+
+  const addCustom = () => {
+    const trimmed = search.trim();
+    if (!trimmed) return;
+    toggle(trimmed);
+    setSearch('');
+  };
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  return (
+    <div className="space-y-2" ref={containerRef}>
+      {/* Selected tags */}
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {value.map((skill) => (
+            <span
+              key={skill}
+              className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-md text-[10px] font-medium"
+            >
+              {skill}
+              {!disabled && (
+                <button
+                  type="button"
+                  onClick={() => toggle(skill)}
+                  className="hover:text-indigo-900"
+                >
+                  <span className="material-symbols-outlined text-[11px]">close</span>
+                </button>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Search input */}
+      <div className="relative">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          placeholder="Search or type a skill..."
+          disabled={disabled}
+          className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-800 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+        />
+        {open && !disabled && (
+          <div className="absolute left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-44 overflow-y-auto">
+            <div className="p-1.5 space-y-0.5">
+              {notInList && (
+                <button
+                  type="button"
+                  onMouseDown={(e) => { e.preventDefault(); addCustom(); setOpen(false); }}
+                  className="w-full text-left px-2 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 rounded hover:bg-indigo-100 transition-colors"
+                >
+                  + Add "{search.trim()}"
+                </button>
+              )}
+              {filtered.map((skill) => {
+                const selected = value.some((s) => s.toLowerCase() === skill.toLowerCase());
+                return (
+                  <button
+                    key={skill}
+                    type="button"
+                    onMouseDown={(e) => { e.preventDefault(); toggle(skill); }}
+                    className={`w-full text-left px-2 py-1.5 text-xs rounded transition-colors flex items-center justify-between ${
+                      selected ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    {skill}
+                    {selected && <span className="material-symbols-outlined text-[13px]">check</span>}
+                  </button>
+                );
+              })}
+              {filtered.length === 0 && !notInList && (
+                <p className="px-2 py-1.5 text-xs text-slate-400 italic">No skills found</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 interface ScreeningCriteriaDetailProps {
   scopeLabel: string;
@@ -65,7 +188,7 @@ export const ScreeningCriteriaDetail: React.FC<
   const updateRule = (
     index: number,
     field: 'field' | 'operator' | 'value' | 'weight',
-    value: string | number,
+    value: string | number | string[],
   ) => {
     setCriteriaJson((current) => {
       const updated = [...current];
@@ -301,11 +424,11 @@ export const ScreeningCriteriaDetail: React.FC<
                   <label className="block text-[10px] font-extrabold text-slate-700 uppercase tracking-wide mb-1">
                     Value
                   </label>
-                  {String(rule.operator) === 'min_years' ? (
+                  {String(rule.operator) === 'min_years' || String(rule.operator) === 'max_salary' ? (
                     <input
                       type="number"
                       min="0"
-                      step="1"
+                      step={String(rule.operator) === 'max_salary' ? '1000' : '1'}
                       value={rule.value ?? ''}
                       onChange={(e) =>
                         updateRule(index, 'value', Number(e.target.value) || 0)
@@ -316,90 +439,22 @@ export const ScreeningCriteriaDetail: React.FC<
                       disabled={!canWrite}
                       className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-800 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
                     />
-                  ) : rule.field === 'Technical Skills' && SCREENING_CRITERIA_VALUE_OPTIONS['Technical Skills'] ? (
-                    <div className="space-y-2">
-                      <div className="relative w-full">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const dropdown = document.getElementById(`tech-skills-dropdown-${index}`);
-                            if (dropdown) {
-                              dropdown.classList.toggle('hidden');
-                            }
-                          }}
-                          disabled={!canWrite}
-                          className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-800 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed text-left flex items-center justify-between"
-                        >
-                          <span>
-                            {Array.isArray(rule.value) && rule.value.length > 0
-                              ? `${rule.value.length} skill(s) selected`
-                              : 'Select skills...'}
-                          </span>
-                          <span className="material-symbols-outlined text-[14px] text-slate-400">
-                            expand_more
-                          </span>
-                        </button>
-                        <div
-                          id={`tech-skills-dropdown-${index}`}
-                          className="hidden absolute left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
-                        >
-                          <div className="p-2 space-y-1">
-                            {SCREENING_CRITERIA_VALUE_OPTIONS['Technical Skills']?.map((skill) => {
-                              const selectedSkills = Array.isArray(rule.value) ? rule.value : (rule.value ? String(rule.value).split(',').map(s => s.trim()) : []);
-                              const isSelected = selectedSkills.includes(skill);
-                              return (
-                                <label
-                                  key={skill}
-                                  className="flex items-center gap-2 px-2 py-1.5 hover:bg-indigo-50 rounded cursor-pointer text-xs transition-colors"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={isSelected}
-                                    onChange={(e) => {
-                                      const newSelected = isSelected
-                                        ? selectedSkills.filter(s => s !== skill)
-                                        : [...selectedSkills, skill];
-                                      updateRule(index, 'value', newSelected);
-                                      // Auto-close dropdown after selection
-                                      const dropdown = document.getElementById(`tech-skills-dropdown-${index}`);
-                                      if (dropdown) {
-                                        dropdown.classList.add('hidden');
-                                      }
-                                    }}
-                                    disabled={!canWrite}
-                                    className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600 disabled:cursor-not-allowed"
-                                  />
-                                  <span className="text-slate-700">{skill}</span>
-                                </label>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                      {Array.isArray(rule.value) && rule.value.length > 0 && (
-                        <div className="flex gap-1 overflow-x-auto pb-1">
-                          {rule.value.map((skill: string) => (
-                            <span
-                              key={skill}
-                              className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-md text-[10px] font-medium shrink-0"
-                            >
-                              {skill}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newSelected = rule.value.filter((s: string) => s !== skill);
-                                  updateRule(index, 'value', newSelected);
-                                }}
-                                disabled={!canWrite}
-                                className="hover:text-indigo-900 disabled:cursor-not-allowed"
-                              >
-                                <span className="material-symbols-outlined text-[12px]">close</span>
-                              </button>
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                  ) : rule.field === 'Technical Skills' ? (
+                    <TechnicalSkillsPicker
+                      index={index}
+                      value={Array.isArray(rule.value) ? rule.value : (rule.value ? String(rule.value).split(',').map((s: string) => s.trim()).filter(Boolean) : [])}
+                      onChange={(skills) => updateRule(index, 'value', skills)}
+                      disabled={!canWrite}
+                    />
+                  ) : rule.field === 'Language Proficiency' ? (
+                    <input
+                      type="text"
+                      value={Array.isArray(rule.value) ? rule.value.join(', ') : (rule.value ?? '')}
+                      onChange={(e) => updateRule(index, 'value', e.target.value)}
+                      placeholder="e.g. English, Amharic"
+                      disabled={!canWrite}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-800 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+                    />
                   ) : SCREENING_CRITERIA_VALUE_OPTIONS[rule.field as keyof typeof SCREENING_CRITERIA_VALUE_OPTIONS] ? (
                     <select
                       value={rule.value ?? ''}

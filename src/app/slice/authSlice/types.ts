@@ -10,6 +10,8 @@ export interface AuthUser {
   permissions?: string[];
   departmentId?: string;
   departmentName?: string;
+  /** Whether the user's email address has been verified */
+  isEmailVerified?: boolean;
 }
 
 export interface AuthState {

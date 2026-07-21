@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, forwardRef } from 'react';
 import { INPUT, THEME_COLORS, TRANSITIONS, BORDER_RADIUS, TYPOGRAPHY } from '@/config/theme';
 

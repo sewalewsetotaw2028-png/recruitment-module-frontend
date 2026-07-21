@@ -60,7 +60,14 @@ const slice = createSlice({
     },
     updateRequestRequest(
       state,
-      _action: PayloadAction<{ requestId: string; data: RecruitmentRequestPayload }>,
+      _action: PayloadAction<{
+        requestId: string;
+        data: RecruitmentRequestPayload;
+        options?: {
+          saveAsDraft?: boolean;
+          submit?: boolean;
+        };
+      }>,
     ) {
       state.actionLoading = true;
       state.actionError = null;
@@ -97,7 +104,7 @@ const slice = createSlice({
       state.actionLoading = false;
       state.actionError = action.payload;
     },
-    approveRequestRequest(state, _action: PayloadAction<{ requestId: string }>) {
+    approveRequestRequest(state, _action: PayloadAction<{ requestId: string; notes?: string }>) {
       state.actionLoading = true;
       state.actionError = null;
       state.actionSuccess = null;

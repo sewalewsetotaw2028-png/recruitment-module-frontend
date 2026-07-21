@@ -48,6 +48,9 @@ export interface RawRecruitmentChannel {
   is_active: boolean;
   company_id: number;
   api_username: string | null;  // Telegram chat_id (or other channel username)
+  api_token?: string | null;
+  api_url?: string | null;
+  share_template?: string | null; // Used as apply link in job posting downloads
 }
 
 // ─── Mappers ──────────────────────────────────────────────────────────────────

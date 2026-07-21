@@ -335,13 +335,16 @@ export const INPUT = {
     default: {
       borderColor: THEME_COLORS.border,
       backgroundColor: THEME_COLORS.surface,
+      boxShadow: 'none',
     },
     focus: {
       borderColor: THEME_COLORS.primary,
+      backgroundColor: THEME_COLORS.surface,
       boxShadow: `0 0 0 3px ${THEME_COLORS.primary100}`,
     },
     error: {
       borderColor: THEME_COLORS.error,
+      backgroundColor: THEME_COLORS.surface,
       boxShadow: `0 0 0 3px ${THEME_COLORS.errorLight}`,
     },
   },

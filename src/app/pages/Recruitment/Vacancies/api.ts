@@ -23,6 +23,7 @@ type VacancyWritePayload = {
   open_positions?: number;
   required_experience?: number;
   required_qualifications?: string;
+  opening_date?: string;
   closing_date?: string;
   benefits?: string;
   employmentTerms?: string;
@@ -103,6 +104,11 @@ const buildVacancyWritePayload = (input: any): VacancyWritePayload => {
   const closingDate = input?.closing_date ?? input?.closingDate;
   if (closingDate) payload.closing_date = String(closingDate).slice(0, 10);
 
+  const openingDate = input?.opening_date ?? input?.openingDate;
+  if (openingDate !== undefined && openingDate !== null && openingDate !== '') {
+    payload.opening_date = String(openingDate).slice(0, 10);
+  }
+
   // Add extra job description fields - always include them if present in input
   // even if empty, so backend knows to update job_description
   if ('benefits' in input) payload.benefits = input.benefits;
@@ -158,6 +164,10 @@ export const mapApiVacancy = (raw: any): Vacancy => {
         )
           .toISOString()
           .slice(0, 10);
+
+  const openingDate = raw.opening_date
+    ? String(raw.opening_date).slice(0, 10)
+    : undefined;
 
   // Extract extra job description fields from job_description relation
   const jobDescription = raw.job_description as any || {};
@@ -219,6 +229,7 @@ export const mapApiVacancy = (raw: any): Vacancy => {
       raw.required_experience !== undefined && raw.required_experience !== null
         ? `${raw.required_experience}+ years`
         : extraJobData.experienceRequired || raw.experienceRequired || undefined,
+    openingDate,
     closingDate,
     hiringManagerId: raw.hiring_manager_id || raw.hiringManagerId || "",
     hiringManagerName:
@@ -399,6 +410,47 @@ export const setVacancyStatus = async (
     method: "POST",
     route: API_ROUTES.vacancies.setStatus(vacancyId),
     body: { status },
+    isSecureRoute: true
+  });
+
+  return mapApiVacancy(data?.data);
+};
+
+/* ✅ PUBLISH JOB POSTING */
+export const publishJobPosting = async (
+  vacancyId: string,
+  channelIds: string[] = []
+): Promise<Vacancy> => {
+  const { data } = await makeCall<{ status: string; data: unknown }>({
+    method: "POST",
+    route: API_ROUTES.vacancies.post(vacancyId),
+    body: { channels: channelIds },
+    isSecureRoute: true
+  });
+
+  return mapApiVacancy(data?.data);
+};
+
+/* ✅ CREATE JOB POSTING */
+export const createJobPosting = async (
+  vacancyId: string,
+  channelIds: string[] = []
+): Promise<Vacancy> => {
+  const { data } = await makeCall<{ status: string; data: unknown }>({
+    method: "POST",
+    route: API_ROUTES.vacancies.post(vacancyId),
+    body: { channels: channelIds },
+    isSecureRoute: true
+  });
+
+  return mapApiVacancy(data?.data);
+};
+
+/* ✅ WITHDRAW JOB POSTING */
+export const withdrawJobPosting = async (vacancyId: string): Promise<Vacancy> => {
+  const { data } = await makeCall<{ status: string; data: unknown }>({
+    method: "POST",
+    route: API_ROUTES.vacancies.unpost(vacancyId),
     isSecureRoute: true
   });
 

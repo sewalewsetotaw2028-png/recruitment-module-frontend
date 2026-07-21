@@ -1,6 +1,8 @@
 export interface AuthenticationSignupState {
   submitting: boolean;
   error: string | null;
+  /** Tracks whether the last signup request completed successfully */
+  signupSuccess: boolean;
 }
 
 export interface SubmitSignupPayload {

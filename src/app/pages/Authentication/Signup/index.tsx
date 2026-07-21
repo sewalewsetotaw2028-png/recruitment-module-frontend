@@ -3,13 +3,15 @@ import { authenticationSignupActions } from './slice';
 import {
   selectSignupPageError,
   selectSignupSubmitting,
+  selectSignupSuccess,
 } from './slice/selectors';
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/hooks';
 import { useAuthSlice } from '@/slice/authSlice';
 import { selectAuthUser } from '@/slice/authSlice/selectors';
 import { AuthShell } from '@/components/auth/AuthShell';
+import { EmailVerificationPending } from '@/components/auth/EmailVerificationPending';
 import { config } from '@/config/env';
 
 export const SignupPage: React.FC = () => {
@@ -18,9 +20,15 @@ export const SignupPage: React.FC = () => {
   useAuthSlice();
 
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const applyVacancyId = searchParams.get('apply');
   const user = useAppSelector(selectAuthUser);
   const submitting = useAppSelector(selectSignupSubmitting);
   const pageError = useAppSelector(selectSignupPageError);
+  const signupSuccess = useAppSelector(selectSignupSuccess);
+
+  // Track registration success to show verification pending view
+  const [registeredEmail, setRegisteredEmail] = useState('');
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -29,10 +37,25 @@ export const SignupPage: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [passwordError, setPasswordError] = useState('');
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   useEffect(() => {
-    if (user) navigate('/dashboard', { replace: true });
-  }, [navigate, user]);
+    if (user) {
+      if (applyVacancyId) {
+        // Signed up and have vacancy to apply — go straight to job search page
+        navigate(`/dashboard/candidate/job-search?apply=${applyVacancyId}`, { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [navigate, user, applyVacancyId]);
+
+  // Reset signupSuccess when navigating away or re-opening the form
+  useEffect(() => {
+    return () => {
+      dispatch(authenticationSignupActions.reset());
+    };
+  }, [dispatch]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,6 +75,7 @@ export const SignupPage: React.FC = () => {
       return;
     }
 
+    setRegisteredEmail(email);
     dispatch(
       authenticationSignupActions.submitSignup({
         firstName,
@@ -63,6 +87,13 @@ export const SignupPage: React.FC = () => {
       }),
     );
   };
+
+  // Show verification pending view after successful registration
+  if (signupSuccess && registeredEmail) {
+    return (
+      <EmailVerificationPending email={registeredEmail} userType="user" />
+    );
+  }
 
   return (
     <AuthShell
@@ -81,6 +112,15 @@ export const SignupPage: React.FC = () => {
       {passwordError && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-600 mb-3 animate-fade-in">
           {passwordError}
+        </div>
+      )}
+
+      {applyVacancyId && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-800 mb-3 flex items-start gap-2">
+          <span className="material-symbols-outlined text-emerald-600 text-sm shrink-0">work</span>
+          <span>
+            <strong>You're applying for a job!</strong> Create your candidate account below, then complete your profile and submit your application.
+          </span>
         </div>
       )}
 
@@ -209,17 +249,26 @@ export const SignupPage: React.FC = () => {
         </span>
       </div>
 
-      {/* Styled OAuth Identity Provider Button */}
+      {/* Google OAuth Button */}
       <button
         type="button"
         onClick={() => {
+          setGoogleLoading(true);
           window.location.href = `${config.apiUrl}/api/v1/auth/google?redirectUrl=${encodeURIComponent(
             window.location.origin,
           )}`;
         }}
-        className="w-full flex items-center justify-center gap-2 border border-slate-200 rounded-xl py-2.5 font-semibold text-sm bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all active:bg-slate-100 shadow-2xs"
+        disabled={googleLoading}
+        className="w-full flex items-center justify-center gap-2.5 border border-slate-200 rounded-xl py-2.5 font-semibold text-sm bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all active:bg-slate-100 disabled:opacity-60 disabled:cursor-not-allowed shadow-2xs"
       >
-        Continue with Google
+        {/* Google G Logo SVG */}
+        <svg width="18" height="18" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+          <path fill="#FBBC05" d="M10.54 28.59A14.5 14.5 0 0 1 9.5 24c0-1.59.28-3.14.76-4.59l-7.98-6.19A23.99 23.99 0 0 0 0 24c0 3.77.87 7.35 2.56 10.56l7.98-5.97z"/>
+          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 5.97C6.51 42.62 14.62 48 24 48z"/>
+        </svg>
+        {googleLoading ? 'Redirecting to Google...' : 'Continue with Google'}
       </button>
     </AuthShell>
   );

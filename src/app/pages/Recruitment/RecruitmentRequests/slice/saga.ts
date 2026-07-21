@@ -79,7 +79,14 @@ function* createRequestSaga(
 }
 
 function* updateRequestSaga(
-  action: PayloadAction<{ requestId: string; data: RecruitmentRequestPayload }>,
+  action: PayloadAction<{
+    requestId: string;
+    data: RecruitmentRequestPayload;
+    options?: {
+      saveAsDraft?: boolean;
+      submit?: boolean;
+    };
+  }>,
 ) {
   try {
     yield call(
@@ -87,6 +94,9 @@ function* updateRequestSaga(
       action.payload.requestId,
       action.payload.data,
     );
+    if (action.payload.options?.submit) {
+      yield call(submitRecruitmentRequest, action.payload.requestId);
+    }
     yield put(recruitmentRequestsActions.updateRequestSuccess('Request updated.'));
     yield put(recruitmentRequestsActions.fetchRequestsRequest());
   } catch (error) {
@@ -130,10 +140,10 @@ function* hrReviewRequestSaga(
 }
 
 function* approveRequestSaga(
-  action: PayloadAction<{ requestId: string }>,
+  action: PayloadAction<{ requestId: string; notes?: string }>,
 ) {
   try {
-    yield call(approveRecruitmentRequest, action.payload.requestId);
+    yield call(approveRecruitmentRequest, action.payload.requestId, action.payload.notes);
     yield put(
       recruitmentRequestsActions.approveRequestSuccess('Request approved.'),
     );

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { all, call, put, takeLatest } from 'redux-saga/effects';
 import makeCall from '@/API';
 import { API_ROUTES } from '@/API/apiRoutes';
@@ -132,7 +131,7 @@ function computeCompletenessFromProfile(data: ApiRaw | null) {
       ? Math.round((completedCount / sections.length) * 100)
       : 0;
 
-  return { percentage, sections };
+  return { percentage, sections, missing: [] };
 }
 
 function* fetchDashboardSaga(): Generator {
@@ -192,7 +191,7 @@ function* fetchDashboardSaga(): Generator {
       // { status: 'success', data: { percentage, sections, missing } }.
       // So completenessRes?.data?.data gives the actual completeness object.
       const raw =
-        (completenessRes as Record<string, unknown> | null)?.data?.data ??
+        ((completenessRes as Record<string, unknown> | null)?.data as Record<string, unknown> | undefined)?.data ??
         (completenessRes as Record<string, unknown> | null)?.data ??
         null;
       if (raw) {
@@ -205,12 +204,12 @@ function* fetchDashboardSaga(): Generator {
     // If API didn't produce a result, compute from profile data
     if (!completeness) {
       try {
-        const profileRes: { data?: { data?: ApiRaw } | ApiRaw } | null =
-          (yield call(makeCall<{ status: string; data: unknown }>, {
-            method: 'GET',
-            route: API_ROUTES.candidates.me,
-            isSecureRoute: true,
-          })) as { data?: { data?: ApiRaw } | ApiRaw } | null;
+        const rawRes: unknown = yield call(makeCall<{ status: string; data: unknown }>, {
+          method: 'GET',
+          route: API_ROUTES.candidates.me,
+          isSecureRoute: true,
+        });
+        const profileRes = rawRes as { data?: { data?: ApiRaw } | ApiRaw } | null;
 
         const profileData: ApiRaw | null =
           (profileRes?.data as { data?: ApiRaw } | undefined)?.data ??

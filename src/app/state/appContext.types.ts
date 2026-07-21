@@ -61,8 +61,8 @@ export interface AppContextType {
   offerTemplates: OfferTemplate[];
   talentPool: TalentPoolEntry[];
   hrisIntegrationAvailable: boolean;
-  usingMockData: boolean;
-  setMockMode: (useMock: boolean) => void;
+  hrisManualMode: boolean;
+  setHrisManualModeState: (enabled: boolean) => void;
   activeTab: string;
   setActiveTab: (tab: string) => void;
   planningViewIntent: 'create' | { edit: string } | null;
@@ -143,7 +143,7 @@ export interface AppContextType {
     interviewType: 'physical' | 'virtual' | 'hybrid',
   ) => void;
   transferToHris: (applicationId: string) => void;
-  createOfferFromApplication: (payload: OfferFormPayload) => string | null;
+  createOfferFromApplication: (payload: OfferFormPayload) => Promise<string | null>;
   updateOffer: (offerId: string, updates: Partial<JobOffer>) => void;
   sendOffer: (offerId: string) => void;
   withdrawOffer: (offerId: string) => void;

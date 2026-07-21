@@ -1,5 +1,4 @@
 import { call, put, select, takeLatest } from 'redux-saga/effects';
-import type { SagaIterator } from 'redux-saga';
 import makeCall from '@/API';
 import { API_ROUTES } from '@/API/apiRoutes';
 import {
@@ -14,7 +13,7 @@ import type { AuthMeApiResponse, AuthUser } from './types';
 
 /** Step 2 — session bootstrap: resolve staff via /auth/me, candidates via /candidates/me */
 
-function* fetchStaffMe(): SagaIterator {
+function* fetchStaffMe() {
   const { data } = yield call(makeCall<AuthMeApiResponse>, {
     method: 'GET',
     route: API_ROUTES.auth.me,
@@ -26,7 +25,7 @@ function* fetchStaffMe(): SagaIterator {
   return null;
 }
 
-function* fetchCandidateMe(): SagaIterator {
+function* fetchCandidateMe() {
   const { data } = yield call(
     makeCall<{ status: string; data: Record<string, unknown> }>,
     {
@@ -41,7 +40,7 @@ function* fetchCandidateMe(): SagaIterator {
   return null;
 }
 
-function* getMeSaga(): SagaIterator {
+function* getMeSaga() {
   const token = localStorage.getItem('token');
   if (!token) {
     yield put(authActions.setLoading(false));
@@ -99,11 +98,11 @@ function* getMeSaga(): SagaIterator {
   }
 }
 
-function* bootstrapSaga(): SagaIterator {
+function* bootstrapSaga() {
   yield put(authActions.getMeRequest());
 }
 
-function* logoutSaga(): SagaIterator {
+function* logoutSaga(): Generator {
   const refreshToken = yield select(selectAuthRefreshToken);
 
   try {
@@ -121,7 +120,7 @@ function* logoutSaga(): SagaIterator {
   yield put(authActions.logoutSuccess());
 }
 
-export function* authSaga(): SagaIterator {
+export function* authSaga() {
   yield takeLatest(authActions.getMeRequest.type, getMeSaga);
   yield takeLatest(authActions.silentGetMeRequest.type, getMeSaga);
   yield takeLatest(authActions.bootstrapRequest.type, bootstrapSaga);

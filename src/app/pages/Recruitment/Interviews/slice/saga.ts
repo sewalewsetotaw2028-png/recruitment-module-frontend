@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { call, put, takeLatest } from 'redux-saga/effects';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import makeCall from '@/API';
@@ -200,6 +199,26 @@ function* cancelInterviewSaga(action: PayloadAction<string>) {
   }
 }
 
+function* markInterviewCompletedSaga(action: PayloadAction<string>) {
+  try {
+    const interviewId = action.payload;
+    yield call(makeCall<{ status: string; data: unknown }>, {
+      method: 'POST',
+      route: API_ROUTES.interviews.complete(interviewId),
+      isSecureRoute: true,
+      body: {},
+    });
+    yield put(interviewsActions.markInterviewCompletedSuccess('Interview marked as completed.'));
+    yield put(interviewsActions.fetchInterviewsRequest());
+  } catch (error) {
+    yield put(
+      interviewsActions.markInterviewCompletedFailure(
+        getErrorMessage(error, 'Failed to mark interview as completed.'),
+      ),
+    );
+  }
+}
+
 export function* interviewsSaga() {
   yield takeLatest(
     interviewsActions.fetchInterviewsRequest.type,
@@ -216,6 +235,10 @@ export function* interviewsSaga() {
   yield takeLatest(
     interviewsActions.cancelInterviewRequest.type,
     cancelInterviewSaga,
+  );
+  yield takeLatest(
+    interviewsActions.markInterviewCompletedRequest.type,
+    markInterviewCompletedSaga,
   );
 }
 

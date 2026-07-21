@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useCandidateJobSearchSlice } from './slice';
 import { candidateJobSearchActions } from './slice';
 import {
@@ -17,6 +16,8 @@ import { Input } from '@/components/common/Input';
 import { Card } from '@/components/common/Card';
 import { Badge } from '@/components/common/Badge';
 import { THEME_COLORS, TYPOGRAPHY } from '@/config/theme';
+import { makeCall } from '@/API';
+import { API_ROUTES } from '@/API/apiRoutes';
 
 export const CandidateJobSearchPage: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -62,14 +63,12 @@ export const CandidateJobSearchPage: React.FC = () => {
     // Fetch recruitment sources and applications
     const fetchRecruitmentSources = async () => {
       try {
-        const { makeCall } = await import('@/API');
-        const { API_ROUTES } = await import('@/API/apiRoutes');
         const res = await makeCall({
           method: 'GET',
           route: API_ROUTES.candidates.recruitmentSources,
           isSecureRoute: true,
-        });
-        const sources = res?.data?.data ?? res?.data ?? [];
+        }) as Record<string, unknown>;
+        const sources = (res?.data as Record<string, unknown> | undefined)?.data ?? res?.data ?? [];
         setRecruitmentSources(Array.isArray(sources) ? sources : []);
       } catch (err) {
         console.error('Failed to fetch recruitment sources:', err);
@@ -78,14 +77,12 @@ export const CandidateJobSearchPage: React.FC = () => {
 
     const fetchApplications = async () => {
       try {
-        const { makeCall } = await import('@/API');
-        const { API_ROUTES } = await import('@/API/apiRoutes');
         const res = await makeCall({
           method: 'GET',
           route: API_ROUTES.candidates.applications,
           isSecureRoute: true,
-        });
-        const applications = res?.data?.data ?? res?.data ?? [];
+        }) as Record<string, unknown>;
+        const applications = (res?.data as Record<string, unknown> | undefined)?.data ?? res?.data ?? [];
         const vacancyIds = Array.isArray(applications) 
           ? applications.map((app: any) => app.vacancy_id).filter(Boolean)
           : [];
@@ -123,10 +120,15 @@ export const CandidateJobSearchPage: React.FC = () => {
 
   const sourceList = vacancies;
 
-  const jobDepartments = [
-    'all',
-    ...Array.from(new Set(sourceList.map((v) => v.departmentName))),
-  ];
+  const jobDepartments: string[] = ['all'];
+  const seen = new Set<string>();
+  sourceList.forEach((v: any) => {
+    const name: string = v.departmentName;
+    if (!seen.has(name)) {
+      seen.add(name);
+      jobDepartments.push(name);
+    }
+  });
 
   const filterJobs = (list: typeof vacancies) =>
     list.filter((vac) => {
@@ -217,7 +219,6 @@ export const CandidateJobSearchPage: React.FC = () => {
             vacancy={detailVac}
             isSaved={isSaved}
             isInternal={jobBoardMode === 'internal'}
-            isApplied={appliedVacancyIds.includes(detailVac.id)}
             onApply={() => setSelectedVacancyId(detailVac.id)}
             onShare={() => {
               navigator.clipboard.writeText(window.location.href);

@@ -20,6 +20,7 @@ export interface ApiUserPayload {
   department_name?: string;
   departmentId?: string;
   departmentName?: string;
+  is_email_verified?: boolean;
 }
 
 export function mapApiUserToAuthUser(payload: ApiUserPayload): AuthUser {
@@ -36,6 +37,7 @@ export function mapApiUserToAuthUser(payload: ApiUserPayload): AuthUser {
     permissions: payload.permissions ?? [],
     departmentId: payload.department_id ?? payload.departmentId,
     departmentName: payload.department_name ?? payload.departmentName,
+    isEmailVerified: payload.is_email_verified ?? false,
   };
 }
 

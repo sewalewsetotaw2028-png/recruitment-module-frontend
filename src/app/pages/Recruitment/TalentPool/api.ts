@@ -1,4 +1,3 @@
-// @ts-nocheck
 import makeCall from '@/API';
 import { API_ROUTES } from '@/API/apiRoutes';
 import type { TalentAvailability, TalentPoolEntry, TalentTier } from '@/types';
@@ -51,7 +50,7 @@ export function mapApiTalentRosterEntry(raw: Record<string, unknown>): TalentPoo
     sourceApplicationId: undefined,
     tags: [category],
     tier: mapTier(category),
-    availability: mapAvailability(candidate.availability_status),
+    availability: mapAvailability(raw.availability_status),
     rejectionReason: asString(raw.notes) || undefined,
     futureFitLabels: [category],
     skills: Array.isArray(candidate.skills)
@@ -66,6 +65,12 @@ export function mapApiTalentRosterEntry(raw: Record<string, unknown>): TalentPoo
       `${asString(addedBy.first_name)} ${asString(addedBy.last_name)}`.trim() ||
       'System',
     history: [],
+    departmentInterest: undefined, // Will be populated from vacancy history if needed
+    status: asString(raw.status) as 'ACTIVE' | 'PLACED' | 'INACTIVE' | 'WITHDRAWN' | undefined,
+    sourceStage: asString(raw.source_stage) || undefined,
+    sourcedFromVacancyIds: Array.isArray(raw.sourced_from_vacancy_ids)
+      ? raw.sourced_from_vacancy_ids.map((id: unknown) => asString(id)).filter(Boolean)
+      : (asString(raw.sourced_from_vacancy_id) ? [asString(raw.sourced_from_vacancy_id)] : []),
   };
 }
 
@@ -76,5 +81,73 @@ export async function fetchTalentPoolEntries(): Promise<TalentPoolEntry[]> {
     isSecureRoute: true,
   });
   const rows = Array.isArray((data as any)?.data) ? (data as any).data : [];
-  return rows.map((row) => mapApiTalentRosterEntry(row as Record<string, unknown>));
+  return rows.map((row: any) => mapApiTalentRosterEntry(row as Record<string, unknown>));
+}
+
+export async function linkCandidateToVacancy(
+  rosterId: string,
+  vacancyId: string,
+): Promise<any> {
+  const { data } = await makeCall<{ status: string; data: any }>({
+    method: 'POST',
+    route: `${API_ROUTES.roaster.list}/${rosterId}/link/${vacancyId}`,
+    isSecureRoute: true,
+  });
+  return data;
+}
+
+export async function getAllRosterActivity(): Promise<any> {
+  const { data } = await makeCall<{ status: string; data: any }>({
+    method: 'GET',
+    route: `${API_ROUTES.roaster.list}/activity`,
+    isSecureRoute: true,
+  });
+  return data;
+}
+
+export async function getRosterHistory(rosterId: string): Promise<any> {
+  const { data } = await makeCall<{ status: string; data: any }>({
+    method: 'GET',
+    route: `${API_ROUTES.roaster.list}/${rosterId}/history`,
+    isSecureRoute: true,
+  });
+  return data;
+}
+
+export async function getCandidateById(candidateId: string): Promise<any> {
+  const { data } = await makeCall<{ status: string; data: any }>({
+    method: 'GET',
+    route: `/api/v1/candidates/${candidateId}`,
+    isSecureRoute: true,
+  });
+  return data;
+}
+
+export async function removeFromRoster(rosterId: string, reason?: string): Promise<any> {
+  const { data } = await makeCall<{ status: string; data: any }>({
+    method: 'DELETE',
+    route: `${API_ROUTES.roaster.list}/${rosterId}`,
+    isSecureRoute: true,
+    body: { reason },
+  });
+  return data;
+}
+
+export async function scheduleInterview(interviewData: {
+  applicationId: string;
+  interviewType: 'physical' | 'virtual' | 'hybrid';
+  scheduledStart: string;
+  scheduledEnd: string;
+  location: string;
+  panelIds: string[];
+  questions: string[];
+  meetingLink?: string;
+}): Promise<any> {
+  const { data } = await makeCall<{ status: string; data: any }>({
+    method: 'POST',
+    route: '/api/v1/interviews',
+    isSecureRoute: true,
+    body: interviewData,
+  });
+  return data;
 }

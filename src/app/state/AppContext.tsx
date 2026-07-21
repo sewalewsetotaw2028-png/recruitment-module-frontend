@@ -25,6 +25,7 @@ import type {
   OfferActivity,
   TalentPoolEntry,
 } from '@/types';
+import { POSTING_CHANNELS, defaultChannelStates } from '@/data/postingChannels';
 import {
   canCreateVacancy,
   canCreateRecruitmentRequest,
@@ -37,18 +38,6 @@ import {
 import { generateVacancyDisplayCode } from '@/utils/vacancyManagement';
 import { generateOfferDisplayCode } from '@/utils/offerManagement';
 import { buildTalentEntryFromRejection } from '@/utils/talentRoster';
-import {
-  mockCandidates,
-  mockQuestionBank,
-  mockScreeningRules,
-  mockUsers,
-  mockJobTemplates,
-  mockJobPostings,
-  mockJobOffers,
-  mockOfferTemplates,
-  mockTalentPool,
-} from '@/data/dummyData';
-import { defaultChannelStates, POSTING_CHANNELS } from '@/data/postingChannels';
 import {
   isPostingInternallyVisible,
   isPostingPubliclyVisible,
@@ -79,7 +68,6 @@ import {
   mapBackendVacancy,
   mapBackendWorkforcePlan,
 } from './appContext.mappers';
-import { normalizeAuthRole } from '@/utils/roleUtils';
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -111,10 +99,38 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
   const notify = (message: string, type: ToastType = 'success') =>
     toast(message, type);
 
-  const authRole = normalizeAuthRole(authUser?.role);
+  // Helper: normalize backend role string to UserRole
+  const normalizeRole = (role?: string): UserRole => {
+    if (!role) {
+      return 'candidate';
+    }
+    const normalized = role.toLowerCase().replace(/[- ]/g, '_');
+    switch (normalized) {
+      case 'candidate':
+      case 'applicant':
+        return normalized as UserRole;
+      case 'recruiter':
+        return 'recruiter';
+      case 'hr':
+      case 'hr_admin':
+        return 'hr_admin';
+      case 'ceo':
+        return 'ceo';
+      case 'hiring_manager':
+      case 'hiring-manager':
+        return 'hiring_manager';
+      case 'department_manager':
+      case 'department-manager':
+        return 'department_manager';
+      case 'interviewer':
+        return 'interviewer';
+      default:
+        return 'candidate';
+    }
+  };
 
   const [currentRole, setRoleState] = useState<UserRole>(() =>
-    authUser ? authRole : 'candidate',
+    authUser?.role ? normalizeRole(authUser.role) : 'candidate',
   );
   const [activeTab, setActiveTabState] = useState<string>('dashboard');
   const [planningViewIntent, setPlanningViewIntent] = useState<
@@ -130,7 +146,7 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
   const [departments, setDepartments] = useState<
     Array<{ id: string; name: string }>
   >([]);
-  const [candidates, setCandidates] = useState<Candidate[]>(mockCandidates);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [vacancies, setVacancies] = useState<Vacancy[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
   const [recruitmentRequests, setRecruitmentRequests] = useState<
@@ -138,21 +154,19 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
   >([]);
   const [workforcePlans, setWorkforcePlans] = useState<WorkforcePlan[]>([]);
   const [interviews, setInterviews] = useState<Interview[]>([]);
-  const [questionBank] = useState<QuestionBankItem[]>(mockQuestionBank);
-  const [screeningRules] = useState<ScreeningRule[]>(mockScreeningRules);
-  const [users, setUsers] = useState<User[]>(mockUsers);
+  const [questionBank, setQuestionBank] = useState<QuestionBankItem[]>([]);
+  const [screeningRules, setScreeningRules] = useState<ScreeningRule[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [jobTemplates, setJobTemplates] =
-    useState<JobTemplate[]>(mockJobTemplates);
-  const [jobPostings, setJobPostings] = useState<JobPosting[]>(mockJobPostings);
-  const [jobOffers, setJobOffers] = useState<JobOffer[]>(mockJobOffers);
-  const [offerTemplates] = useState<OfferTemplate[]>(mockOfferTemplates);
+    useState<JobTemplate[]>([]);
+  const [jobPostings, setJobPostings] = useState<JobPosting[]>([]);
+  const [jobOffers, setJobOffers] = useState<JobOffer[]>([]);
+  const [offerTemplates, setOfferTemplates] = useState<OfferTemplate[]>([]);
   const [talentPool, setTalentPool] =
-    useState<TalentPoolEntry[]>(mockTalentPool);
+    useState<TalentPoolEntry[]>([]);
   const [hrisIntegrationAvailable, setHrisIntegrationAvailable] =
     useState(true);
   const [hrisManualMode, setHrisManualModeState] = useState(false);
-  const [usingMockData, setUsingMockData] = useState(false);
-  const setMockMode = (useMock: boolean) => setUsingMockData(useMock);
   const [vacancyHubView, setVacancyHubView] = useState<VacancyHubView>('list');
   const [selectedVacancyId, setSelectedVacancyId] = useState<string | null>(
     null,
@@ -163,10 +177,7 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     if (!token || authLoading || !isAuthenticated) return;
     const fetchBackendData = async () => {
-      const safeFetch = async <T,>(
-        route: string,
-        apply: (data: T) => void,
-      ) => {
+      const safeFetch = async <T,>(route: string, apply: (data: T) => void) => {
         try {
           const res = await apiFetch(route);
           if (res && res.status === 'success' && res.data) {
@@ -179,7 +190,7 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
         return false;
       };
 
-      const isCandidate = authRole === 'candidate';
+      const isCandidate = authUser?.role === 'candidate';
       // Helper: check if the current user has a given permission slug.
       // Uses the permissions array baked into the auth token at login time.
       const userPerms: string[] = authUser?.permissions ?? [];
@@ -244,7 +255,9 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
         // Job templates — config:manage only
         if (hasPerm('config:manage')) {
           await safeFetch('/api/v1/config/job-templates', (data: any) => {
-            const backendTemplates: JobTemplate[] = (Array.isArray(data) ? data : []).map(
+            const backendTemplates: JobTemplate[] = (
+              Array.isArray(data) ? data : []
+            ).map(
               (t: any): JobTemplate => ({
                 id: t.id,
                 organizationId: String(t.company_id ?? 'org-1'),
@@ -253,7 +266,9 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
                 description: t.summary ?? '',
                 responsibilities: t.responsibilities ?? '',
                 requirements: t.requirements ?? '',
-                employmentType: (t.employment_type ?? 'full_time').toLowerCase().replace('_', '_') as any,
+                employmentType: (t.employment_type ?? 'full_time')
+                  .toLowerCase()
+                  .replace('_', '_') as any,
                 skills: [],
                 benefits: '',
                 employmentTerms: '',
@@ -269,11 +284,53 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
             }
           });
         }
+
+        // Job offers — HR with offer permissions
+        if (hasPerm('offer:issue', 'offer:read')) {
+          loadedAnyLiveData =
+            (await safeFetch('/api/v1/offers/company', (data: any) => {
+              const backendOffers: JobOffer[] = (Array.isArray(data) ? data : []).map(
+                (o: any): JobOffer => ({
+                  id: o.id,
+                  displayCode: `OFF-${String(o.id).slice(-6).toUpperCase()}`,
+                  organizationId: String(o.company_id),
+                  applicationId: o.application_id,
+                  candidateId: o.candidate_id,
+                  candidateName: o.candidate
+                    ? `${o.candidate.first_name} ${o.candidate.last_name}`
+                    : 'Unknown',
+                  vacancyId: o.application?.vacancy?.id || '',
+                  positionTitle: o.application?.vacancy?.title || 'Position',
+                  departmentName: o.application?.vacancy?.department?.name || '—',
+                  salary: o.salary,
+                  salaryCurrency: 'ETB',
+                  employmentType: o.employment_type || 'FULL_TIME',
+                  startDate: o.start_date,
+                  allowances: o.allowances as Record<string, number> | undefined,
+                  benefits: o.offer_notes || '',
+                  expirationDate: o.expiry_date,
+                  status: o.status.toLowerCase(),
+                  templateId: o.template_id,
+                  hrisSyncStatus: 'not_connected',
+                  onboardingStatus: 'not_started',
+                  manualOnboarding: true,
+                  approvalRequired: false,
+                  activities: [],
+                  createdBy: o.created_by_user_id,
+                  createdByName: 'HR User',
+                  createdAt: o.created_at,
+                  updatedAt: o.updated_at,
+                }),
+              );
+              setJobOffers(backendOffers);
+            })) || loadedAnyLiveData;
+        }
       }
 
-      const applicationsEndpoint = authUser && authUser.role !== 'candidate'
-        ? '/api/v1/candidates/company/applications'
-        : '/api/v1/candidates/applications';
+      const applicationsEndpoint =
+        authUser && authUser.role !== 'candidate'
+          ? '/api/v1/candidates/company/applications'
+          : '/api/v1/candidates/applications';
 
       loadedAnyLiveData =
         (await safeFetch(applicationsEndpoint, (data: any) => {
@@ -281,7 +338,7 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
         })) || loadedAnyLiveData;
 
       // If authenticated as candidate, fetch full candidate profile
-      if (authUser && authRole === 'candidate') {
+      if (authUser && authUser.role === 'candidate') {
         try {
           const meRes = await apiFetch('/api/v1/candidates/me');
           if (meRes && meRes.status === 'success' && meRes.data) {
@@ -299,9 +356,6 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
         }
       }
 
-      if (!loadedAnyLiveData) {
-        setUsingMockData(true);
-      }
     };
     fetchBackendData();
   }, [token, authUser, authLoading, isAuthenticated]);
@@ -311,7 +365,7 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
   // Set default current user profile based on active role
   const getCurrentUser = (): User => {
     if (authUser) {
-      const normalizedRole = normalizeAuthRole(authUser.role);
+      const normalizedRole = normalizeRole(authUser.role);
       return {
         id: authUser.id,
         organizationId: authUser.organizationId,
@@ -326,19 +380,42 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
     }
     if (currentRole === 'candidate') {
       const activeCandidate = candidates[0];
+      if (activeCandidate) {
+        return {
+          id: activeCandidate.id,
+          organizationId: activeCandidate.organizationId,
+          firstName: activeCandidate.firstName,
+          lastName: activeCandidate.lastName,
+          email: activeCandidate.email,
+          phone: activeCandidate.phone,
+          roleSlug: 'candidate' as any,
+          roleName: 'Candidate Profile',
+          avatarUrl: activeCandidate.profile?.profilePhotoUrl,
+        };
+      }
       return {
-        id: activeCandidate.id,
-        organizationId: activeCandidate.organizationId,
-        firstName: activeCandidate.firstName,
-        lastName: activeCandidate.lastName,
-        email: activeCandidate.email,
-        phone: activeCandidate.phone,
+        id: 'candidate-placeholder',
+        organizationId: 'org-1',
+        firstName: 'Candidate',
+        lastName: 'User',
+        email: '',
+        phone: '',
         roleSlug: 'candidate' as any,
         roleName: 'Candidate Profile',
-        avatarUrl: activeCandidate.profile?.profilePhotoUrl,
       };
     } else {
-      return users.find((u) => u.roleSlug === currentRole) || users[0];
+      const foundUser = users.find((u) => u.roleSlug === currentRole);
+      if (foundUser) return foundUser;
+      if (users.length > 0) return users[0];
+      return {
+        id: 'staff-placeholder',
+        organizationId: 'org-1',
+        firstName: 'Staff',
+        lastName: 'User',
+        email: '',
+        roleSlug: currentRole as any,
+        roleName: currentRole.replace('_', ' ').toUpperCase(),
+      };
     }
   };
 
@@ -777,7 +854,7 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
       const res = await apiFetch('/api/v1/config/job-templates', {
         method: 'POST',
         body: JSON.stringify({
-          title: name,                           // template name IS the title in the DB
+          title: name, // template name IS the title in the DB
           employmentType: 'FULL_TIME',
           summary: form.description,
           responsibilities: form.responsibilities || 'N/A',
@@ -795,7 +872,10 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
         );
       }
     } catch (err) {
-      console.warn('Template saved locally only — backend persist failed:', err);
+      console.warn(
+        'Template saved locally only — backend persist failed:',
+        err,
+      );
     }
   };
 
@@ -1450,7 +1530,7 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
       vacancyId: vacancy.id,
       vacancyTitle: vacancy.title,
       applicationSource: 'Company Website',
-      applicationStatus: 'submitted',
+      applicationStatus: 'SUBMITTED',
       currentStage: 'Screening Queue',
       coverLetter,
       submittedAt: new Date().toISOString(),
@@ -1710,7 +1790,7 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
         app.id === applicationId
           ? {
               ...app,
-              applicationStatus: 'shortlisted',
+              applicationStatus: 'SHORTLISTED',
               currentStage: 'Shortlisted',
               screeningComments: screeningNotes
                 ? [app.screeningComments, screeningNotes]
@@ -1771,9 +1851,9 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
     };
   };
 
-  const createOfferFromApplication = (
+  const createOfferFromApplication = async (
     payload: OfferFormPayload,
-  ): string | null => {
+  ): Promise<string | null> => {
     const app = applications.find((a) => a.id === payload.applicationId);
     if (!app) return null;
     if (
@@ -1786,6 +1866,80 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
       notify('An active offer already exists for this application.', 'error');
       return null;
     }
+
+    const tokenLocal = localStorage.getItem('token');
+    if (tokenLocal) {
+      try {
+        const response = await apiFetch('/api/v1/offers/issue', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            application_id: payload.applicationId,
+            salary: payload.salary,
+            employment_type: payload.employmentType,
+            start_date: payload.startDate,
+            expiry_date: payload.expirationDate,
+            offer_notes: payload.benefits,
+            template_id: payload.templateId,
+            allowances: (payload as any).allowances,
+          }),
+        });
+
+        if (response && response.status === 'success' && response.data) {
+          const backendOffer = response.data;
+          const mappedOffer: JobOffer = {
+            id: backendOffer.id,
+            displayCode: generateOfferDisplayCode(jobOffers.length + 1),
+            organizationId: String(backendOffer.company_id),
+            applicationId: backendOffer.application_id,
+            candidateId: backendOffer.candidate_id,
+            candidateName: backendOffer.candidate
+              ? `${backendOffer.candidate.first_name} ${backendOffer.candidate.last_name}`
+              : 'Unknown',
+            vacancyId: app.vacancyId,
+            positionTitle: backendOffer.application?.vacancy?.title || app.vacancyTitle,
+            departmentName: backendOffer.application?.vacancy?.department?.name || '—',
+            salary: backendOffer.salary,
+            salaryCurrency: 'ETB',
+            employmentType: backendOffer.employment_type || 'FULL_TIME',
+            startDate: backendOffer.start_date,
+            allowances: backendOffer.allowances as Record<string, number> | undefined,
+            benefits: backendOffer.offer_notes || '',
+            expirationDate: backendOffer.expiry_date,
+            status: backendOffer.status.toLowerCase(),
+            templateId: backendOffer.template_id,
+            hrisSyncStatus: 'not_connected',
+            onboardingStatus: 'not_started',
+            manualOnboarding: true,
+            approvalRequired: false,
+            activities: [],
+            createdBy: backendOffer.created_by_user_id,
+            createdByName: 'HR User',
+            createdAt: backendOffer.created_at,
+            updatedAt: backendOffer.updated_at,
+          };
+
+          setJobOffers((prev) => [...prev, mappedOffer]);
+          setApplications((prev) =>
+            prev.map((a) =>
+              a.id === app.id
+                ? { ...a, applicationStatus: 'OFFER_ISSUED', currentStage: 'Offer Stage' }
+                : a,
+            ),
+          );
+          notify('Offer created successfully.');
+          return mappedOffer.id;
+        }
+      } catch (err: any) {
+        notify(`Failed to create offer: ${err.message}`, 'error');
+        return null;
+      }
+      return null;
+    }
+
+    // Fallback to mock mode if no token
     const vac = vacancies.find((v) => v.id === app.vacancyId);
     const user = getCurrentUser();
     const tmpl = payload.templateId
@@ -1806,6 +1960,7 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
       salaryCurrency: 'ETB',
       employmentType: payload.employmentType,
       startDate: payload.startDate,
+      allowances: (payload as any).allowances || {},
       benefits: payload.benefits || tmpl?.defaultBenefits,
       expirationDate: payload.expirationDate,
       status: 'draft',
@@ -1833,10 +1988,11 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
     setApplications((prev) =>
       prev.map((a) =>
         a.id === app.id
-          ? { ...a, applicationStatus: 'offered', currentStage: 'Offer Stage' }
+          ? { ...a, applicationStatus: 'OFFER_ISSUED', currentStage: 'Offer Stage' }
           : a,
       ),
     );
+    notify('Offer created in local demo mode.');
     return offerId;
   };
 
@@ -2107,7 +2263,7 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
         a.id === offer.applicationId
           ? {
               ...a,
-              applicationStatus: 'hired',
+              applicationStatus: 'OFFER_ACCEPTED',
               currentStage: 'Onboarding In Progress',
             }
           : a,
@@ -2139,7 +2295,7 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
         app.id === applicationId
           ? {
               ...app,
-              applicationStatus: 'hired',
+              applicationStatus: 'OFFER_ACCEPTED',
               currentStage: 'Hired — HRIS Onboarding Initiated',
             }
           : app,
@@ -2241,7 +2397,7 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
         a.id === applicationId
           ? {
               ...a,
-              applicationStatus: 'interview',
+              applicationStatus: 'INTERVIEW_SCHEDULED',
               currentStage: 'Interviewing',
             }
           : a,
@@ -2273,7 +2429,7 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
       vacancyId: vac.id,
       vacancyTitle: vac.title,
       applicationSource: 'Talent Pool',
-      applicationStatus: 'shortlisted',
+      applicationStatus: 'SHORTLISTED',
       currentStage: 'Reused from Talent Pool',
       submittedAt: new Date().toISOString(),
       matchScore: 85,
@@ -2347,13 +2503,13 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
             let nextStatus = app.applicationStatus;
             let nextStage = app.currentStage;
             if (recommendation === 'pass') {
-              nextStatus = 'offered';
+              nextStatus = 'OFFER_ISSUED';
               nextStage = 'Offer Stage';
             } else if (recommendation === 'fail') {
-              nextStatus = 'rejected';
+              nextStatus = 'REJECTED';
               nextStage = 'Rejected';
             } else {
-              nextStatus = 'screening';
+              nextStatus = 'UNDER_SCREENING';
               nextStage = 'Under Hold Review';
             }
             return {
@@ -2389,7 +2545,7 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
         a.id === applicationId
           ? {
               ...a,
-              applicationStatus: 'rejected',
+              applicationStatus: 'REJECTED',
               currentStage: addToPool
                 ? 'Archived in Talent Roster'
                 : 'Rejected',
@@ -2527,7 +2683,7 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
         app.id === applicationId
           ? {
               ...app,
-              applicationStatus: 'rejected',
+              applicationStatus: 'REJECTED',
               currentStage: 'Offer rejected by CEO',
             }
           : app,
@@ -2575,8 +2731,8 @@ const AppProviderInner: React.FC<{ children: React.ReactNode }> = ({
         offerTemplates,
         talentPool,
         hrisIntegrationAvailable: hrisIntegrationAvailable && !hrisManualMode,
-        usingMockData,
-        setMockMode,
+        hrisManualMode,
+        setHrisManualModeState,
         activeTab,
         setActiveTab,
         planningViewIntent,

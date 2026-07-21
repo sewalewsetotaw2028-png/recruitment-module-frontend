@@ -13,16 +13,13 @@ export const SCREENING_CRITERIA_FIELDS = [
   'Educational Qualification',
   'Field of Study',
   'Relevant Work Experience',
-  'Years of Experience Range',
-  'Professional Certification',
   'Technical Skills',
   'Language Proficiency',
-  'Communication Skills',
   'Availability',
-  'Salary Expectation',
   'Location Requirement',
   'Preferred Job Category',
   'Current Position Level',
+  'Salary Expectation',
 ] as const;
 
 export const SCREENING_CRITERIA_OPERATORS = [
@@ -30,41 +27,36 @@ export const SCREENING_CRITERIA_OPERATORS = [
   'min_years',
   'equals',
   'contains',
+  'max_salary',
 ] as const;
 
 export const SCREENING_CRITERIA_OPERATOR_OPTIONS = {
   'Educational Qualification': ['equals', 'contains'],
   'Field of Study': ['equals', 'contains'],
   'Relevant Work Experience': ['min_years', 'equals'],
-  'Years of Experience Range': ['equals', 'contains'],
-  'Professional Certification': ['required', 'contains'],
   'Technical Skills': ['contains', 'required'],
   'Language Proficiency': ['equals', 'contains'],
-  'Communication Skills': ['required', 'contains'],
   Availability: ['equals'],
-  'Salary Expectation': ['equals', 'contains'],
   'Location Requirement': ['equals'],
   'Preferred Job Category': ['equals', 'contains'],
   'Current Position Level': ['equals', 'contains'],
+  'Salary Expectation': ['max_salary'],
 } as const satisfies Record<
   ScreeningCriterionField,
   readonly ScreeningCriterionOperator[]
 >;
 
 export const SCREENING_CRITERIA_VALUE_PLACEHOLDERS = {
-  'Educational Qualification': "e.g. Bachelor's degree or above",
+  'Educational Qualification': "e.g. Bachelor's Degree",
   'Field of Study': 'e.g. Computer Science, Business Administration',
   'Relevant Work Experience': 'e.g. 3',
-  'Years of Experience Range': 'e.g. 3-5 years',
-  'Professional Certification': 'e.g. Relevant certification preferred',
   'Technical Skills': 'e.g. React, SQL, project management',
-  'Language Proficiency': 'e.g. English - professional proficiency',
-  'Communication Skills': 'e.g. Clear written and verbal communication',
+  'Language Proficiency': 'e.g. English, Amharic',
   Availability: 'e.g. Immediate or within notice period',
-  'Salary Expectation': 'e.g. Within approved budget range',
-  'Location Requirement': 'e.g. Able to work in the required location',
+  'Location Requirement': 'e.g. Addis Ababa',
   'Preferred Job Category': 'e.g. Software Engineering, Finance',
   'Current Position Level': 'e.g. Mid-level, Senior, Lead',
+  'Salary Expectation': 'e.g. 50000 (max budget in ETB)',
 } as const satisfies Record<ScreeningCriterionField, string>;
 
 // Dropdown options for candidate-facing fields
@@ -88,6 +80,7 @@ export const COMMON_SKILLS = [
 ] as const;
 
 export const SCREENING_CRITERIA_VALUE_OPTIONS = {
+  // Values match exactly what the candidate profile degree field stores
   'Educational Qualification': [
     'High School',
     "Associate's Degree",
@@ -128,14 +121,7 @@ export const SCREENING_CRITERIA_VALUE_OPTIONS = {
     'Remote',
     'Willing to Relocate',
   ],
-  'Language Proficiency': [
-    'English - Native',
-    'English - Professional Proficiency',
-    'English - Limited Working Proficiency',
-    'Amharic - Native',
-    'Amharic - Professional Proficiency',
-    'Other',
-  ],
+  // Language Proficiency is intentionally NOT here → renders as free-text input
   'Current Position Level': [
     'Entry Level',
     'Junior',
