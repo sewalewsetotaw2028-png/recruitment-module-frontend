@@ -392,7 +392,14 @@ export const mapBackendWorkforcePlan = (raw: any): WorkforcePlan => {
         ? 'contractor'
         : normalized) as WorkforcePlan['items'][number]['employmentType'];
     })(item.employmentType),
-    grade: item.grade,
+    grade: item.grade || item.job_grade,
+    jobGrade: item.jobGrade || item.job_grade,
+    salaryBudget: item.salaryBudget ?? item.salary_budget ? Number(item.salaryBudget ?? item.salary_budget) : undefined,
+    positionType: item.positionType || item.position_type,
+    replacementEmployeeRef: item.replacementEmployeeRef || item.replacement_employee_ref,
+    expectedImpact: item.expectedImpact || item.expected_impact,
+    requiredQualifications: item.requiredQualifications || item.required_qualifications,
+    remarks: item.remarks,
     priority: item.priority,
     headcountRequired: item.headcount || 0,
     plannedStartDate:
